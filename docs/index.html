@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Computer Accuracy Practice</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <button id="drawerBackdrop" class="drawer-backdrop" type="button" aria-label="Close menu" hidden></button>
+    <button id="logBackdrop" class="modal-backdrop" type="button" aria-label="Close log" hidden></button>
+    <button id="searchBackdrop" class="modal-backdrop" type="button" aria-label="Close search" hidden></button>
+    <button id="resultsBackdrop" class="modal-backdrop" type="button" aria-label="Close results" hidden></button>
+
+    <aside id="testDrawer" class="sidebar drawer" aria-label="Test menu" hidden>
+      <div class="brand">
+        <div class="brand-mark">CA</div>
+        <div>
+          <h1>Computer Accuracy</h1>
+          <p>Practice bank</p>
+        </div>
+        <button id="closeMenuBtn" class="icon-btn drawer-close" type="button" aria-label="Close menu">x</button>
+      </div>
+
+      <div class="menu-mode-toggle" role="group" aria-label="Choose by">
+        <button id="testModeBtn" class="menu-mode-btn active" type="button">Tests</button>
+        <button id="categoryModeBtn" class="menu-mode-btn" type="button">Categories</button>
+      </div>
+
+      <div id="menuFilters" class="menu-controls">
+        <label class="field-label" for="yearFilter">Year</label>
+        <select id="yearFilter" class="compact-select"></select>
+        <label class="field-label" for="eventFilter">Event</label>
+        <select id="eventFilter" class="compact-select">
+          <option value="all">All</option>
+          <option value="regionals">Regionals</option>
+          <option value="nationals">Nationals</option>
+        </select>
+      </div>
+
+      <nav id="testMenu" class="test-menu"></nav>
+    </aside>
+
+    <main id="homeScreen" class="home-screen">
+      <div class="home-stack">
+        <section class="home-card">
+          <div class="brand home-brand">
+            <div class="brand-mark">CA</div>
+            <div>
+              <h1>Computer Accuracy</h1>
+            </div>
+          </div>
+          <div class="home-copy">
+            <div class="selected-test-row">
+              <div class="selected-test-copy">
+                <p id="selectedTestKicker" class="kicker">Selected test</p>
+                <h2 id="selectedTestTitle">Loading tests...</h2>
+                <p id="selectedTestMeta" class="selected-meta">One second.</p>
+              </div>
+              <button id="chooseTestBtn" class="ghost-btn" type="button">Choose</button>
+            </div>
+          </div>
+          <label class="setting-toggle" for="instantRevealToggle">
+            <span>
+              <strong>Reveal answers immediately</strong>
+              <small>Turn off for finish-only results.</small>
+            </span>
+            <input id="instantRevealToggle" type="checkbox" checked />
+            <span class="toggle-track" aria-hidden="true"></span>
+          </label>
+          <label id="autoFinishSetting" class="setting-toggle" for="autoFinishToggle">
+            <span>
+              <strong>Finish automatically at 1 hour</strong>
+              <small>Leave off to let the timer keep running.</small>
+            </span>
+            <input id="autoFinishToggle" type="checkbox" />
+            <span class="toggle-track" aria-hidden="true"></span>
+          </label>
+          <div class="home-actions">
+            <div class="home-left-actions">
+              <button id="homeLogBtn" class="ghost-btn" type="button">Log</button>
+              <button id="homeSearchBtn" class="ghost-btn" type="button">Search</button>
+            </div>
+            <button id="startBtn" class="nav-btn primary" type="button">Start</button>
+          </div>
+        </section>
+        <section id="resumePanel" class="resume-panel" hidden>
+          <div class="resume-heading">
+            <h3>Resume test</h3>
+          </div>
+          <div id="resumeList" class="resume-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <div id="practiceShell" class="practice-shell" hidden>
+      <main class="main-panel">
+        <header class="topbar">
+          <div class="top-title">
+            <button id="practiceHomeBtn" class="icon-btn" type="button" aria-label="Home">
+              <svg class="home-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 11.2 12 4l8 7.2V20h-5v-6H9v6H4v-8.8Zm2 .9V18h1v-6h10v6h1v-5.9l-6-5.4-6 5.4Z" />
+              </svg>
+            </button>
+            <div>
+              <p id="testKicker" class="kicker">Choose a test</p>
+              <h2 id="testTitle">Ready when you are.</h2>
+            </div>
+          </div>
+          <div class="top-actions">
+            <span id="timerText" class="timer-pill">00:00</span>
+            <button id="shuffleBtn" class="ghost-btn" type="button">Shuffle</button>
+            <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
+          </div>
+        </header>
+
+        <section class="status-strip" aria-label="Practice status">
+          <div>
+            <span class="muted">Progress</span>
+            <strong id="progressText">0 / 0</strong>
+          </div>
+          <div>
+            <span class="muted">Score</span>
+            <strong id="scoreText">0%</strong>
+          </div>
+          <div>
+            <span class="muted">Answered</span>
+            <strong id="answeredText">0</strong>
+          </div>
+        </section>
+
+        <section class="question-card" aria-live="polite">
+          <div class="question-meta">
+            <span id="questionNumber">Question</span>
+          </div>
+
+          <div id="questionText" class="rich-text question-text"></div>
+          <div id="answerArea" class="answer-area"></div>
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+
+          <footer class="question-actions">
+            <button id="prevBtn" class="nav-btn" type="button">Previous</button>
+            <div class="assist-actions">
+              <button id="flagBtn" class="flag-btn" type="button">Flag</button>
+              <button id="hintBtn" class="ghost-btn" type="button">Hint</button>
+              <button id="revealBtn" class="ghost-btn" type="button">Reveal</button>
+              <button id="resetQuestionBtn" class="text-danger" type="button" hidden>Reset</button>
+            </div>
+            <button id="nextBtn" class="nav-btn primary" type="button">Next</button>
+          </footer>
+        </section>
+      </main>
+      <section id="questionTimeline" class="question-timeline" aria-label="Question timeline" hidden>
+        <div id="timelineList" class="timeline-list"></div>
+      </section>
+    </div>
+
+    <section id="contextDock" class="context-dock" aria-label="Question context" hidden>
+      <div class="context-header">
+        <div>
+          <span class="dot"></span>
+          <strong>Context</strong>
+        </div>
+        <div class="context-actions">
+          <button id="dockPositionBtn" class="icon-btn" type="button" aria-label="Move context">^</button>
+          <button id="dockToggleBtn" class="icon-btn" type="button" aria-label="Toggle context">-</button>
+        </div>
+      </div>
+      <div id="contextBody" class="context-body rich-text"></div>
+    </section>
+
+    <section id="logModal" class="log-modal" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden>
+      <header class="log-header">
+        <div>
+          <h2 id="logTitle">Run log</h2>
+          <p class="log-caption">This log is saved in this browser and can clear if browser or site data is cleared.</p>
+        </div>
+        <button id="closeLogBtn" class="icon-btn" type="button" aria-label="Close log">x</button>
+      </header>
+      <div id="logList" class="log-list"></div>
+    </section>
+
+    <section id="searchModal" class="search-modal" role="dialog" aria-modal="true" aria-labelledby="searchTitle" hidden>
+      <header class="search-header">
+        <div>
+          <p class="kicker">Question bank</p>
+          <h2 id="searchTitle">Search</h2>
+        </div>
+        <button id="closeSearchBtn" class="icon-btn" type="button" aria-label="Close search">x</button>
+      </header>
+      <div class="search-body">
+        <label class="search-field" for="searchInput">
+          <input id="searchInput" type="search" autocomplete="off" placeholder="Keyword, answer, year, context..." />
+        </label>
+        <div id="searchStatus" class="search-status" aria-live="polite"></div>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+    </section>
+
+    <section id="resultsModal" class="results-modal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle" hidden>
+      <header class="results-header">
+        <div>
+          <p class="kicker">Finished</p>
+          <h2 id="resultsTitle">Test results</h2>
+        </div>
+        <button id="closeResultsBtn" class="icon-btn" type="button" aria-label="Close results">x</button>
+      </header>
+      <div id="resultsSummary" class="results-summary"></div>
+      <div id="resultsList" class="results-list"></div>
+    </section>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

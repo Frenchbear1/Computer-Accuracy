@@ -17,6 +17,7 @@ const state = {
   menuMode: "tests",
   reviewMode: false,
   started: false,
+  headerCollapsed: false,
   timerStartedAt: null,
   timerInterval: null,
   timerElapsedMs: 0,
@@ -40,6 +41,7 @@ const state = {
 const els = {
   homeScreen: $("#homeScreen"),
   practiceShell: $("#practiceShell"),
+  practiceHeader: $("#practiceHeader"),
   testDrawer: $("#testDrawer"),
   drawerBackdrop: $("#drawerBackdrop"),
   logBackdrop: $("#logBackdrop"),
@@ -68,11 +70,16 @@ const els = {
   testKicker: $("#testKicker"),
   testTitle: $("#testTitle"),
   timerText: $("#timerText"),
+  statusStrip: $("#statusStrip"),
   progressText: $("#progressText"),
   scoreText: $("#scoreText"),
   answeredText: $("#answeredText"),
+  toggleHeaderBtn: $("#toggleHeaderBtn"),
   questionTimeline: $("#questionTimeline"),
   timelineList: $("#timelineList"),
+  timelinePicker: $("#timelinePicker"),
+  timelinePickerLabel: $("#timelinePickerLabel"),
+  timelinePickerMenu: $("#timelinePickerMenu"),
   questionNumber: $("#questionNumber"),
   flagBtn: $("#flagBtn"),
   questionText: $("#questionText"),
@@ -341,6 +348,19 @@ function saveSelectedTestId() {
   if (state.selectedTestId) {
     window.localStorage.setItem(SELECTED_TEST_KEY, state.selectedTestId);
   }
+}
+
+function setPracticeHeaderCollapsed(collapsed) {
+  state.headerCollapsed = Boolean(collapsed);
+  els.practiceHeader.classList.toggle("collapsed", state.headerCollapsed);
+  els.toggleHeaderBtn.textContent = state.headerCollapsed ? "+" : "-";
+  els.toggleHeaderBtn.setAttribute(
+    "aria-label",
+    state.headerCollapsed ? "Expand practice header" : "Minimize practice header"
+  );
+  els.toggleHeaderBtn.title = state.headerCollapsed
+    ? "Expand practice header"
+    : "Minimize practice header";
 }
 
 async function fetchJson(url) {
@@ -1415,11 +1435,54 @@ function timelineLabel(question) {
   return String(question.number);
 }
 
+function timelineOptionLabel(question) {
+  return state.currentTest?.selectionType === "category" && question?.sourceTestTitle
+    ? `${question.sourceTestTitle} - Question ${question.number}`
+    : `Question ${question.number}`;
+}
+
+function jumpToQuestion(question) {
+  state.reviewMode = false;
+  state.order = [...state.currentTest.questions];
+  state.currentIndex = state.order.findIndex((item) => questionId(item) === questionId(question));
+  if (state.currentIndex < 0) state.currentIndex = 0;
+  renderQuestion();
+  saveIncompleteProgress();
+}
+
 function renderTimeline() {
   clearNode(els.timelineList);
+  clearNode(els.timelinePickerMenu);
   const questions = state.currentTest?.questions || [];
   els.questionTimeline.hidden = !state.started || !questions.length;
   if (!state.started || !questions.length) return;
+
+  const usePicker = questions.length > 40;
+  els.questionTimeline.classList.toggle("compact", usePicker);
+  els.timelineList.hidden = usePicker;
+  els.timelinePicker.hidden = !usePicker;
+  if (!usePicker) els.timelinePicker.open = false;
+
+  if (usePicker) {
+    const current = currentQuestion() || questions[0];
+    els.timelinePicker.open = false;
+    els.timelinePickerLabel.textContent = `Question ${current?.number || 1} of ${questions.length}`;
+
+    questions.forEach((question) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `timeline-option ${timelineStatus(question)}`;
+      button.classList.toggle("current", answerKey(question) === answerKey(current));
+      button.textContent = timelineOptionLabel(question);
+      button.setAttribute("aria-label", `Jump to ${timelineOptionLabel(question)}`);
+      button.addEventListener("click", () => {
+        els.timelinePicker.open = false;
+        jumpToQuestion(question);
+      });
+      els.timelinePickerMenu.appendChild(button);
+    });
+    return;
+  }
 
   els.timelineList.style.setProperty("--timeline-count", questions.length);
   questions.forEach((question) => {
@@ -1430,14 +1493,7 @@ function renderTimeline() {
     button.dataset.tooltip = timelineLabel(question);
     button.setAttribute("aria-label", timelineLabel(question));
     button.title = timelineLabel(question);
-    button.addEventListener("click", () => {
-      state.reviewMode = false;
-      state.order = [...state.currentTest.questions];
-      state.currentIndex = state.order.findIndex((item) => questionId(item) === questionId(question));
-      if (state.currentIndex < 0) state.currentIndex = 0;
-      renderQuestion();
-      saveIncompleteProgress();
-    });
+    button.addEventListener("click", () => jumpToQuestion(question));
     els.timelineList.appendChild(button);
   });
 }
@@ -2063,6 +2119,9 @@ async function init() {
     saveAutoFinishSetting();
     if (state.autoFinishHour && state.started) updateTimer();
   });
+  els.toggleHeaderBtn.addEventListener("click", () => {
+    setPracticeHeaderCollapsed(!state.headerCollapsed);
+  });
   els.practiceHomeBtn.addEventListener("click", goHome);
   els.chooseTestBtn.addEventListener("click", () => setMenuOpen(true));
   els.closeMenuBtn.addEventListener("click", () => setMenuOpen(false));
@@ -2087,7 +2146,8 @@ async function init() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      if (!els.resultsModal.hidden) setResultsOpen(false);
+      if (els.timelinePicker.open) els.timelinePicker.open = false;
+      else if (!els.resultsModal.hidden) setResultsOpen(false);
       else if (!els.searchModal.hidden) setSearchOpen(false);
       else if (!els.logModal.hidden) setLogOpen(false);
       else setMenuOpen(false);
@@ -2107,6 +2167,12 @@ async function init() {
     }
   });
 
+  document.addEventListener("click", (event) => {
+    if (!els.timelinePicker.open) return;
+    if (els.timelinePicker.contains(event.target)) return;
+    els.timelinePicker.open = false;
+  });
+
   window.addEventListener("beforeunload", () => {
     if (!state.started) return;
     stopTimer();
@@ -2118,6 +2184,7 @@ async function init() {
   loadInstantRevealSetting();
   loadAutoFinishSetting();
   state.selectedTestId = loadSelectedTestId();
+  setPracticeHeaderCollapsed(false);
   setMenuMode("tests");
   renderHomeSelection();
   window.setTimeout(() => ensureSearchIndex().catch(() => {}), 300);

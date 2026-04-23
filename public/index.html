@@ -95,39 +95,42 @@
 
     <div id="practiceShell" class="practice-shell" hidden>
       <main class="main-panel">
-        <header class="topbar">
-          <div class="top-title">
-            <button id="practiceHomeBtn" class="icon-btn" type="button" aria-label="Home">
-              <svg class="home-icon" aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M4 11.2 12 4l8 7.2V20h-5v-6H9v6H4v-8.8Zm2 .9V18h1v-6h10v6h1v-5.9l-6-5.4-6 5.4Z" />
-              </svg>
-            </button>
-            <div>
-              <p id="testKicker" class="kicker">Choose a test</p>
-              <h2 id="testTitle">Ready when you are.</h2>
+        <div id="practiceHeader" class="practice-header">
+          <header class="topbar">
+            <div class="top-title">
+              <button id="practiceHomeBtn" class="icon-btn" type="button" aria-label="Home">
+                <svg class="home-icon" aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M4 11.2 12 4l8 7.2V20h-5v-6H9v6H4v-8.8Zm2 .9V18h1v-6h10v6h1v-5.9l-6-5.4-6 5.4Z" />
+                </svg>
+              </button>
+              <div class="top-copy">
+                <p id="testKicker" class="kicker">Choose a test</p>
+                <h2 id="testTitle">Ready when you are.</h2>
+              </div>
             </div>
-          </div>
-          <div class="top-actions">
-            <span id="timerText" class="timer-pill">00:00</span>
-            <button id="shuffleBtn" class="ghost-btn" type="button">Shuffle</button>
-            <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
-          </div>
-        </header>
+            <div class="top-actions">
+              <span id="timerText" class="timer-pill">00:00</span>
+              <button id="shuffleBtn" class="ghost-btn" type="button">Shuffle</button>
+              <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
+            </div>
+          </header>
 
-        <section class="status-strip" aria-label="Practice status">
-          <div>
-            <span class="muted">Progress</span>
-            <strong id="progressText">0 / 0</strong>
-          </div>
-          <div>
-            <span class="muted">Score</span>
-            <strong id="scoreText">0%</strong>
-          </div>
-          <div>
-            <span class="muted">Answered</span>
-            <strong id="answeredText">0</strong>
-          </div>
-        </section>
+          <section id="statusStrip" class="status-strip" aria-label="Practice status">
+            <div class="status-pill">
+              <span class="muted">Progress</span>
+              <strong id="progressText">0 / 0</strong>
+            </div>
+            <div class="status-pill">
+              <span class="muted">Score</span>
+              <strong id="scoreText">0%</strong>
+            </div>
+            <div class="status-pill">
+              <span class="muted">Answered</span>
+              <strong id="answeredText">0</strong>
+            </div>
+            <button id="toggleHeaderBtn" class="status-toggle" type="button" aria-label="Minimize practice header" title="Minimize practice header">-</button>
+          </section>
+        </div>
 
         <section class="question-card" aria-live="polite">
           <div class="question-meta">
@@ -152,6 +155,10 @@
       </main>
       <section id="questionTimeline" class="question-timeline" aria-label="Question timeline" hidden>
         <div id="timelineList" class="timeline-list"></div>
+        <details id="timelinePicker" class="timeline-picker" hidden>
+          <summary id="timelinePickerLabel" class="timeline-pill">Question 1 of 1</summary>
+          <div id="timelinePickerMenu" class="timeline-picker-menu"></div>
+        </details>
       </section>
     </div>
 

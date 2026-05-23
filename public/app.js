@@ -3,6 +3,7 @@ const RUN_LOG_KEY = "computerAccuracyRunLog:v1";
 const INCOMPLETE_TESTS_KEY = "computerAccuracyIncompleteTests:v1";
 const INSTANT_REVEAL_KEY = "computerAccuracyInstantReveal:v1";
 const AUTO_FINISH_KEY = "computerAccuracyAutoFinishHour:v1";
+const SHUFFLE_QUESTIONS_KEY = "computerAccuracyShuffleQuestions:v1";
 const SELECTED_TEST_KEY = "computerAccuracySelectedTest:v1";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const STATIC_DATA_ROOT = new URL("./data/", window.location.href);
@@ -17,7 +18,6 @@ const state = {
   menuMode: "tests",
   reviewMode: false,
   started: false,
-  headerCollapsed: false,
   timerStartedAt: null,
   timerInterval: null,
   timerElapsedMs: 0,
@@ -25,13 +25,17 @@ const state = {
   activeRunSaved: false,
   instantReveal: true,
   autoFinishHour: false,
+  shuffleQuestions: false,
+  pendingDeleteIncompleteId: null,
+  resultsReturnActive: false,
+  resultsReturnRun: null,
   runLog: [],
   incompleteTests: [],
   answers: new Map(),
   flags: new Map(),
   helpers: new Map(),
   contextCollapsed: false,
-  contextTop: false,
+  searchShowAnswers: false,
   searchIndex: [],
   searchIndexLoaded: false,
   searchIndexLoading: null,
@@ -47,6 +51,7 @@ const els = {
   logBackdrop: $("#logBackdrop"),
   searchBackdrop: $("#searchBackdrop"),
   resultsBackdrop: $("#resultsBackdrop"),
+  confirmBackdrop: $("#confirmBackdrop"),
   chooseTestBtn: $("#chooseTestBtn"),
   selectedTestKicker: $("#selectedTestKicker"),
   homeLogBtn: $("#homeLogBtn"),
@@ -55,9 +60,9 @@ const els = {
   instantRevealToggle: $("#instantRevealToggle"),
   autoFinishSetting: $("#autoFinishSetting"),
   autoFinishToggle: $("#autoFinishToggle"),
+  shuffleToggle: $("#shuffleToggle"),
   resumePanel: $("#resumePanel"),
   resumeList: $("#resumeList"),
-  closeMenuBtn: $("#closeMenuBtn"),
   practiceHomeBtn: $("#practiceHomeBtn"),
   selectedTestTitle: $("#selectedTestTitle"),
   selectedTestMeta: $("#selectedTestMeta"),
@@ -67,14 +72,12 @@ const els = {
   yearFilter: $("#yearFilter"),
   eventFilter: $("#eventFilter"),
   testMenu: $("#testMenu"),
-  testKicker: $("#testKicker"),
   testTitle: $("#testTitle"),
   timerText: $("#timerText"),
   statusStrip: $("#statusStrip"),
   progressText: $("#progressText"),
   scoreText: $("#scoreText"),
   answeredText: $("#answeredText"),
-  toggleHeaderBtn: $("#toggleHeaderBtn"),
   questionTimeline: $("#questionTimeline"),
   timelineList: $("#timelineList"),
   timelinePicker: $("#timelinePicker"),
@@ -87,28 +90,28 @@ const els = {
   feedback: $("#feedback"),
   prevBtn: $("#prevBtn"),
   nextBtn: $("#nextBtn"),
+  nextBtnText: $("#nextBtn .flight-text"),
   hintBtn: $("#hintBtn"),
   revealBtn: $("#revealBtn"),
   resetQuestionBtn: $("#resetQuestionBtn"),
-  resetBtn: $("#resetBtn"),
-  shuffleBtn: $("#shuffleBtn"),
   contextDock: $("#contextDock"),
   contextBody: $("#contextBody"),
   dockToggleBtn: $("#dockToggleBtn"),
-  dockPositionBtn: $("#dockPositionBtn"),
   logModal: $("#logModal"),
-  closeLogBtn: $("#closeLogBtn"),
   logList: $("#logList"),
   searchModal: $("#searchModal"),
-  closeSearchBtn: $("#closeSearchBtn"),
+  searchAnswersToggle: $("#searchAnswersToggle"),
   searchInput: $("#searchInput"),
   searchStatus: $("#searchStatus"),
   searchResults: $("#searchResults"),
   resultsModal: $("#resultsModal"),
-  closeResultsBtn: $("#closeResultsBtn"),
   resultsTitle: $("#resultsTitle"),
   resultsSummary: $("#resultsSummary"),
   resultsList: $("#resultsList"),
+  confirmModal: $("#confirmModal"),
+  confirmMessage: $("#confirmMessage"),
+  cancelDeleteBtn: $("#cancelDeleteBtn"),
+  confirmDeleteBtn: $("#confirmDeleteBtn"),
 };
 
 function normalizeText(value) {
@@ -338,6 +341,16 @@ function saveAutoFinishSetting() {
   window.localStorage.setItem(AUTO_FINISH_KEY, String(state.autoFinishHour));
 }
 
+function loadShuffleQuestionsSetting() {
+  const saved = window.localStorage.getItem(SHUFFLE_QUESTIONS_KEY);
+  state.shuffleQuestions = saved === "true";
+  els.shuffleToggle.checked = state.shuffleQuestions;
+}
+
+function saveShuffleQuestionsSetting() {
+  window.localStorage.setItem(SHUFFLE_QUESTIONS_KEY, String(state.shuffleQuestions));
+}
+
 function loadSelectedTestId() {
   const saved = window.localStorage.getItem(SELECTED_TEST_KEY);
   if (selectionMetaById(saved)) return saved;
@@ -348,19 +361,6 @@ function saveSelectedTestId() {
   if (state.selectedTestId) {
     window.localStorage.setItem(SELECTED_TEST_KEY, state.selectedTestId);
   }
-}
-
-function setPracticeHeaderCollapsed(collapsed) {
-  state.headerCollapsed = Boolean(collapsed);
-  els.practiceHeader.classList.toggle("collapsed", state.headerCollapsed);
-  els.toggleHeaderBtn.textContent = state.headerCollapsed ? "+" : "-";
-  els.toggleHeaderBtn.setAttribute(
-    "aria-label",
-    state.headerCollapsed ? "Expand practice header" : "Minimize practice header"
-  );
-  els.toggleHeaderBtn.title = state.headerCollapsed
-    ? "Expand practice header"
-    : "Minimize practice header";
 }
 
 async function fetchJson(url) {
@@ -677,6 +677,8 @@ function renderResultsModal(run) {
     if (canJumpToQuestion) {
       row.addEventListener("click", () => {
         setResultsOpen(false);
+        state.resultsReturnActive = true;
+        state.resultsReturnRun = run || null;
         state.reviewMode = false;
         state.order = [...state.currentTest.questions];
         state.currentIndex = state.order.findIndex(
@@ -699,14 +701,11 @@ function renderResultsModal(run) {
     prompt.textContent = result.questionText || "Question";
     const userAnswer = document.createElement("small");
     userAnswer.textContent = `Your answer: ${result.userAnswer || "No answer"}`;
-    const correctAnswer = document.createElement("small");
-    correctAnswer.textContent = `Correct answer: ${result.correctAnswer || "Answer unavailable"}`;
-    main.append(prompt, userAnswer, correctAnswer);
-    if (result.flagged) {
-      const flagged = document.createElement("small");
-      flagged.className = "result-flag";
-      flagged.textContent = "Flagged";
-      main.appendChild(flagged);
+    main.append(prompt, userAnswer);
+    if (status !== "correct") {
+      const correctAnswer = document.createElement("small");
+      correctAnswer.textContent = `Correct answer: ${result.correctAnswer || "Answer unavailable"}`;
+      main.appendChild(correctAnswer);
     }
 
     const stateLabel = document.createElement("span");
@@ -720,6 +719,9 @@ function renderResultsModal(run) {
 
 function setResultsOpen(open, run = null) {
   if (open) {
+    state.resultsReturnActive = false;
+    state.resultsReturnRun = null;
+    setConfirmOpen(false);
     setLogOpen(false);
     setSearchOpen(false);
     renderResultsModal(run);
@@ -779,7 +781,7 @@ function renderResumePanel() {
     deleteButton.className = "resume-delete";
     deleteButton.setAttribute("aria-label", `Delete unfinished ${saved.testTitle || "test"}`);
     deleteButton.innerHTML = `<svg class="trash-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 9h2v10h6v-1h2v3H7V9Z"/></svg>`;
-    deleteButton.addEventListener("click", () => removeIncompleteProgress(saved.id));
+    deleteButton.addEventListener("click", () => requestDeleteIncompleteProgress(saved.id));
 
     actions.append(deleteButton, button);
     item.append(main, actions);
@@ -787,8 +789,28 @@ function renderResumePanel() {
   });
 }
 
+function setConfirmOpen(open, saved = null) {
+  state.pendingDeleteIncompleteId = open ? saved?.id || null : null;
+  if (open && saved) {
+    els.confirmMessage.textContent = `Delete the unfinished ${saved.testTitle || "test"} attempt? This saved progress will be removed.`;
+    els.confirmModal.hidden = false;
+    els.confirmBackdrop.hidden = false;
+    window.setTimeout(() => els.cancelDeleteBtn.focus(), 0);
+  } else {
+    els.confirmModal.hidden = true;
+    els.confirmBackdrop.hidden = true;
+  }
+}
+
+function requestDeleteIncompleteProgress(id) {
+  const saved = state.incompleteTests.find((item) => item.id === id);
+  if (!saved) return;
+  setConfirmOpen(true, saved);
+}
+
 function setLogOpen(open) {
   if (open) {
+    setConfirmOpen(false);
     setResultsOpen(false);
     setSearchOpen(false);
     renderRunLog();
@@ -1265,7 +1287,7 @@ function renderSearchResult(record, terms, index) {
     record.choices.forEach((choice) => {
       const pill = document.createElement("span");
       pill.className = "search-choice-pill";
-      pill.classList.toggle("correct", choice.letter === record.answerKey);
+      pill.classList.toggle("correct", state.searchShowAnswers && choice.letter === record.answerKey);
 
       const letter = document.createElement("strong");
       letter.textContent = choice.letter;
@@ -1276,11 +1298,15 @@ function renderSearchResult(record, terms, index) {
     });
   } else {
     const pill = document.createElement("span");
-    pill.className = "search-choice-pill correct";
+    pill.className = `search-choice-pill ${state.searchShowAnswers ? "correct" : ""}`.trim();
     const letter = document.createElement("strong");
     letter.textContent = "Answer";
     const text = document.createElement("span");
-    appendMarkedText(text, record.correctAnswer || record.answerKey || "Answer unavailable", terms);
+    appendMarkedText(
+      text,
+      state.searchShowAnswers ? record.correctAnswer || record.answerKey || "Answer unavailable" : "Answer hidden",
+      terms
+    );
     pill.append(letter, text);
     choices.appendChild(pill);
   }
@@ -1366,6 +1392,7 @@ function renderSearchResults() {
 
 function setSearchOpen(open) {
   if (open) {
+    setConfirmOpen(false);
     setLogOpen(false);
     setResultsOpen(false);
     setMenuOpen(false);
@@ -1428,10 +1455,36 @@ function timelineStatus(question) {
   return "unanswered";
 }
 
+function timelineStatusColor(status) {
+  return {
+    unanswered: "#a8a49a",
+    pending: "#74716a",
+    complete: "#227b51",
+    incorrect: "#a13b36",
+    flagged: "#d4a72c",
+  }[status] || "#a8a49a";
+}
+
+function timelineGradient(questions) {
+  if (!questions.length) return "rgba(32, 32, 29, 0.12)";
+  if (questions.length === 1) return timelineStatusColor(timelineStatus(questions[0]));
+
+  const segmentWidth = 100 / questions.length;
+  const feather = Math.min(segmentWidth * 0.18, 0.45);
+  const stops = [];
+  questions.forEach((question, index) => {
+    const color = timelineStatusColor(timelineStatus(question));
+    const start = index * segmentWidth;
+    const end = (index + 1) * segmentWidth;
+    const softStart = index === 0 ? start : start + feather;
+    const softEnd = index === questions.length - 1 ? end : end - feather;
+    stops.push(`${color} ${softStart.toFixed(3)}%`);
+    stops.push(`${color} ${softEnd.toFixed(3)}%`);
+  });
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
+}
+
 function timelineLabel(question) {
-  if (state.currentTest?.selectionType === "category" && question?.sourceTestTitle) {
-    return `${question.sourceTestTitle} - Question ${question.number}`;
-  }
   return String(question.number);
 }
 
@@ -1442,6 +1495,8 @@ function timelineOptionLabel(question) {
 }
 
 function jumpToQuestion(question) {
+  state.resultsReturnActive = false;
+  state.resultsReturnRun = null;
   state.reviewMode = false;
   state.order = [...state.currentTest.questions];
   state.currentIndex = state.order.findIndex((item) => questionId(item) === questionId(question));
@@ -1485,14 +1540,14 @@ function renderTimeline() {
   }
 
   els.timelineList.style.setProperty("--timeline-count", questions.length);
+  els.timelineList.style.setProperty("--timeline-gradient", timelineGradient(questions));
   questions.forEach((question) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `timeline-dot ${timelineStatus(question)}`;
+    button.className = `timeline-segment ${timelineStatus(question)}`;
     button.classList.toggle("current", answerKey(question) === answerKey(currentQuestion() || {}));
     button.dataset.tooltip = timelineLabel(question);
     button.setAttribute("aria-label", timelineLabel(question));
-    button.title = timelineLabel(question);
     button.addEventListener("click", () => jumpToQuestion(question));
     els.timelineList.appendChild(button);
   });
@@ -1590,27 +1645,32 @@ function updateControls(question) {
   const answer = state.answers.get(answerKey(question));
 
   els.flagBtn.classList.toggle("active", flagged);
-  els.flagBtn.textContent = flagged ? "Flagged" : "Flag";
+  els.flagBtn.setAttribute("aria-pressed", String(flagged));
+  els.flagBtn.setAttribute("aria-label", flagged ? "Unflag question" : "Flag question");
   els.revealBtn.textContent = helper.revealed ? "Hide" : "Reveal";
-  els.revealBtn.hidden = !shouldShowAnswerResults();
-  els.hintBtn.hidden = !isChoiceQuestion || helper.hintCount >= 2 || visibleChoices <= 2 || Boolean(answer?.checked);
+  els.revealBtn.hidden = !shouldShowAnswerResults() || Boolean(answer?.checked);
+  els.hintBtn.hidden =
+    !isChoiceQuestion ||
+    helper.revealed ||
+    helper.hintCount >= 2 ||
+    visibleChoices <= 2 ||
+    Boolean(answer?.checked);
   els.resetQuestionBtn.hidden = !helper.revealed && !helper.hiddenChoices.length && !answer?.checked;
 
-  if (state.reviewMode) {
-    els.testKicker.textContent = `${state.currentTest.title} - flagged review`;
-  } else {
-    els.testKicker.textContent = `${state.currentTest.count} questions${flagCount ? ` - ${flagCount} flagged` : ""}`;
+  if (state.resultsReturnActive) {
+    els.nextBtnText.textContent = "Results";
+    return;
   }
 
   const atEnd = state.currentIndex === state.order.length - 1;
   if (!atEnd) {
-    els.nextBtn.textContent = "Next";
+    els.nextBtnText.textContent = "Next";
   } else if (state.activeRunSaved) {
-    els.nextBtn.textContent = "Saved";
+    els.nextBtnText.textContent = "Saved";
   } else if (!state.reviewMode && flagCount) {
-    els.nextBtn.textContent = "Review Flagged";
+    els.nextBtnText.textContent = "Review Flagged";
   } else {
-    els.nextBtn.textContent = "Finish";
+    els.nextBtnText.textContent = "Finish";
   }
 }
 
@@ -1631,9 +1691,8 @@ function renderContext(question) {
   els.contextDock.hidden = !hasContext;
   els.contextDock.classList.toggle("hidden", !hasContext);
   els.contextDock.classList.toggle("collapsed", state.contextCollapsed);
-  els.contextDock.classList.toggle("top", state.contextTop);
-  els.dockToggleBtn.textContent = state.contextCollapsed ? "+" : "-";
-  els.dockPositionBtn.textContent = state.contextTop ? "v" : "^";
+  els.dockToggleBtn.textContent = state.contextCollapsed ? "Expand" : "Minimize";
+  els.dockToggleBtn.setAttribute("aria-label", state.contextCollapsed ? "Expand context" : "Minimize context");
   renderRichText(els.contextBody, question?.context || "", contextTable);
 }
 
@@ -1938,6 +1997,7 @@ function removeIncompleteProgress(id = state.activeRunId) {
   state.incompleteTests = state.incompleteTests.filter((saved) => saved.id !== id);
   saveIncompleteTests();
   renderResumePanel();
+  if (state.pendingDeleteIncompleteId === id) setConfirmOpen(false);
 }
 
 function restoreEntries(entries, targetMap) {
@@ -2002,6 +2062,10 @@ function toggleFlag() {
   if (!question) return;
   const key = answerKey(question);
   state.flags.set(key, !state.flags.get(key));
+  els.flagBtn.classList.remove("just-toggled");
+  void els.flagBtn.offsetWidth;
+  els.flagBtn.classList.add("just-toggled");
+  window.setTimeout(() => els.flagBtn.classList.remove("just-toggled"), 520);
   updateControls(question);
   renderTimeline();
   saveIncompleteProgress();
@@ -2009,6 +2073,14 @@ function toggleFlag() {
 
 function go(delta) {
   if (!state.order.length) return;
+  if (delta > 0 && state.resultsReturnActive) {
+    const run = state.resultsReturnRun;
+    state.resultsReturnActive = false;
+    state.resultsReturnRun = null;
+    updateControls(currentQuestion());
+    setResultsOpen(true, run);
+    return;
+  }
   if (delta > 0 && state.currentIndex === state.order.length - 1) {
     if (!state.reviewMode && flaggedQuestions().length) {
       state.reviewMode = true;
@@ -2042,15 +2114,6 @@ function resetCurrentTest() {
   saveIncompleteProgress();
 }
 
-function shuffleCurrentTest() {
-  if (!state.currentTest) return;
-  state.order = shuffled(buildShuffleBlocks(state.currentTest.questions)).flat();
-  state.currentIndex = 0;
-  state.reviewMode = false;
-  renderQuestion();
-  saveIncompleteProgress();
-}
-
 async function loadTest(id) {
   state.currentTest = await fetchSelection(id, isCategorySelection(id) ? "category" : "test");
   state.selectedTestId = id;
@@ -2059,7 +2122,6 @@ async function loadTest(id) {
   state.currentIndex = 0;
   state.reviewMode = false;
 
-  els.testKicker.textContent = `${state.currentTest.count} questions`;
   els.testTitle.textContent = state.currentTest.title;
   renderHomeSelection();
   renderMenu();
@@ -2079,7 +2141,9 @@ async function startSelectedTest() {
   clearProgressForTest(state.currentTest.id);
   state.currentIndex = 0;
   state.reviewMode = false;
-  state.order = [...state.currentTest.questions];
+  state.order = state.shuffleQuestions
+    ? shuffled(buildShuffleBlocks(state.currentTest.questions)).flat()
+    : [...state.currentTest.questions];
   state.started = true;
   startTimer();
   renderQuestion();
@@ -2095,6 +2159,7 @@ async function init() {
   els.yearFilter.innerHTML = years
     .map((year) => `<option value="${year}">${year === "all" ? "All" : year}</option>`)
     .join("");
+  els.searchAnswersToggle.checked = state.searchShowAnswers;
 
   els.yearFilter.addEventListener("change", renderMenu);
   els.eventFilter.addEventListener("change", renderMenu);
@@ -2102,12 +2167,16 @@ async function init() {
   els.categoryModeBtn.addEventListener("click", () => setMenuMode("categories"));
   els.homeLogBtn.addEventListener("click", () => setLogOpen(true));
   els.homeSearchBtn.addEventListener("click", () => setSearchOpen(true));
-  els.closeLogBtn.addEventListener("click", () => setLogOpen(false));
   els.logBackdrop.addEventListener("click", () => setLogOpen(false));
-  els.closeSearchBtn.addEventListener("click", () => setSearchOpen(false));
   els.searchBackdrop.addEventListener("click", () => setSearchOpen(false));
+  els.confirmBackdrop.addEventListener("click", () => setConfirmOpen(false));
+  els.cancelDeleteBtn.addEventListener("click", () => setConfirmOpen(false));
+  els.confirmDeleteBtn.addEventListener("click", () => removeIncompleteProgress(state.pendingDeleteIncompleteId));
+  els.searchAnswersToggle.addEventListener("change", () => {
+    state.searchShowAnswers = els.searchAnswersToggle.checked;
+    renderSearchResults();
+  });
   els.searchInput.addEventListener("input", renderSearchResults);
-  els.closeResultsBtn.addEventListener("click", () => setResultsOpen(false));
   els.resultsBackdrop.addEventListener("click", () => setResultsOpen(false));
   els.instantRevealToggle.addEventListener("change", () => {
     state.instantReveal = els.instantRevealToggle.checked;
@@ -2119,12 +2188,12 @@ async function init() {
     saveAutoFinishSetting();
     if (state.autoFinishHour && state.started) updateTimer();
   });
-  els.toggleHeaderBtn.addEventListener("click", () => {
-    setPracticeHeaderCollapsed(!state.headerCollapsed);
+  els.shuffleToggle.addEventListener("change", () => {
+    state.shuffleQuestions = els.shuffleToggle.checked;
+    saveShuffleQuestionsSetting();
   });
   els.practiceHomeBtn.addEventListener("click", goHome);
   els.chooseTestBtn.addEventListener("click", () => setMenuOpen(true));
-  els.closeMenuBtn.addEventListener("click", () => setMenuOpen(false));
   els.drawerBackdrop.addEventListener("click", () => setMenuOpen(false));
   els.startBtn.addEventListener("click", startSelectedTest);
   els.prevBtn.addEventListener("click", () => go(-1));
@@ -2133,20 +2202,15 @@ async function init() {
   els.revealBtn.addEventListener("click", revealAnswer);
   els.resetQuestionBtn.addEventListener("click", resetQuestion);
   els.flagBtn.addEventListener("click", toggleFlag);
-  els.resetBtn.addEventListener("click", resetCurrentTest);
-  els.shuffleBtn.addEventListener("click", shuffleCurrentTest);
   els.dockToggleBtn.addEventListener("click", () => {
     state.contextCollapsed = !state.contextCollapsed;
-    renderContext(currentQuestion());
-  });
-  els.dockPositionBtn.addEventListener("click", () => {
-    state.contextTop = !state.contextTop;
     renderContext(currentQuestion());
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (els.timelinePicker.open) els.timelinePicker.open = false;
+      else if (!els.confirmModal.hidden) setConfirmOpen(false);
       else if (!els.resultsModal.hidden) setResultsOpen(false);
       else if (!els.searchModal.hidden) setSearchOpen(false);
       else if (!els.logModal.hidden) setLogOpen(false);
@@ -2183,8 +2247,8 @@ async function init() {
   loadIncompleteTests();
   loadInstantRevealSetting();
   loadAutoFinishSetting();
+  loadShuffleQuestionsSetting();
   state.selectedTestId = loadSelectedTestId();
-  setPracticeHeaderCollapsed(false);
   setMenuMode("tests");
   renderHomeSelection();
   window.setTimeout(() => ensureSearchIndex().catch(() => {}), 300);

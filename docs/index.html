@@ -11,17 +11,9 @@
     <button id="logBackdrop" class="modal-backdrop" type="button" aria-label="Close log" hidden></button>
     <button id="searchBackdrop" class="modal-backdrop" type="button" aria-label="Close search" hidden></button>
     <button id="resultsBackdrop" class="modal-backdrop" type="button" aria-label="Close results" hidden></button>
+    <button id="confirmBackdrop" class="modal-backdrop confirm-backdrop" type="button" aria-label="Cancel delete" hidden></button>
 
     <aside id="testDrawer" class="sidebar drawer" aria-label="Test menu" hidden>
-      <div class="brand">
-        <div class="brand-mark">CA</div>
-        <div>
-          <h1>Computer Accuracy</h1>
-          <p>Practice bank</p>
-        </div>
-        <button id="closeMenuBtn" class="icon-btn drawer-close" type="button" aria-label="Close menu">x</button>
-      </div>
-
       <div class="menu-mode-toggle" role="group" aria-label="Choose by">
         <button id="testModeBtn" class="menu-mode-btn active" type="button">Tests</button>
         <button id="categoryModeBtn" class="menu-mode-btn" type="button">Categories</button>
@@ -43,13 +35,8 @@
 
     <main id="homeScreen" class="home-screen">
       <div class="home-stack">
+        <h1 class="home-title">Computer Accuracy</h1>
         <section class="home-card">
-          <div class="brand home-brand">
-            <div class="brand-mark">CA</div>
-            <div>
-              <h1>Computer Accuracy</h1>
-            </div>
-          </div>
           <div class="home-copy">
             <div class="selected-test-row">
               <div class="selected-test-copy">
@@ -65,16 +52,57 @@
               <strong>Reveal answers immediately</strong>
               <small>Turn off for finish-only results.</small>
             </span>
-            <input id="instantRevealToggle" type="checkbox" checked />
-            <span class="toggle-track" aria-hidden="true"></span>
+            <span class="plane-switch">
+              <input id="instantRevealToggle" type="checkbox" checked />
+              <span class="plane-switch-track" aria-hidden="true">
+                <span class="plane-switch-thumb">
+                  <svg viewBox="0 0 13 13">
+                    <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z" fill="currentColor"></path>
+                  </svg>
+                </span>
+                <span class="street-middle"></span>
+                <span class="cloud"></span>
+                <span class="cloud two"></span>
+              </span>
+            </span>
           </label>
           <label id="autoFinishSetting" class="setting-toggle" for="autoFinishToggle">
             <span>
               <strong>Finish automatically at 1 hour</strong>
               <small>Leave off to let the timer keep running.</small>
             </span>
-            <input id="autoFinishToggle" type="checkbox" />
-            <span class="toggle-track" aria-hidden="true"></span>
+            <span class="plane-switch">
+              <input id="autoFinishToggle" type="checkbox" />
+              <span class="plane-switch-track" aria-hidden="true">
+                <span class="plane-switch-thumb">
+                  <svg viewBox="0 0 13 13">
+                    <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z" fill="currentColor"></path>
+                  </svg>
+                </span>
+                <span class="street-middle"></span>
+                <span class="cloud"></span>
+                <span class="cloud two"></span>
+              </span>
+            </span>
+          </label>
+          <label class="setting-toggle" for="shuffleToggle">
+            <span>
+              <strong>Shuffle questions</strong>
+              <small>Leave off to practice in order.</small>
+            </span>
+            <span class="plane-switch">
+              <input id="shuffleToggle" type="checkbox" />
+              <span class="plane-switch-track" aria-hidden="true">
+                <span class="plane-switch-thumb">
+                  <svg viewBox="0 0 13 13">
+                    <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z" fill="currentColor"></path>
+                  </svg>
+                </span>
+                <span class="street-middle"></span>
+                <span class="cloud"></span>
+                <span class="cloud two"></span>
+              </span>
+            </span>
           </label>
           <div class="home-actions">
             <div class="home-left-actions">
@@ -99,57 +127,93 @@
           <header class="topbar">
             <div class="top-title">
               <button id="practiceHomeBtn" class="icon-btn" type="button" aria-label="Home">
-                <svg class="home-icon" aria-hidden="true" viewBox="0 0 24 24">
-                  <path d="M4 11.2 12 4l8 7.2V20h-5v-6H9v6H4v-8.8Zm2 .9V18h1v-6h10v6h1v-5.9l-6-5.4-6 5.4Z" />
+                <svg class="home-icon hangar-icon" aria-hidden="true" viewBox="0 0 640 512">
+                  <path d="M0 488V171.3c0-26.2 15.9-49.7 40.2-59.4L308.1 4.8c7.6-3.1 16.1-3.1 23.8 0L599.8 111.9c24.3 9.7 40.2 33.3 40.2 59.4V488c0 13.3-10.7 24-24 24h-48c-13.3 0-24-10.7-24-24V224c0-17.7-14.3-32-32-32H128c-17.7 0-32 14.3-32 32v264c0 13.3-10.7 24-24 24H24c-13.3 0-24-10.7-24-24zm488 24H152c-13.3 0-24-10.7-24-24v-56h384v56c0 13.3-10.7 24-24 24zm24-120H128v-64h384v64zm0-104H128v-64h384v64z" />
                 </svg>
               </button>
               <div class="top-copy">
-                <p id="testKicker" class="kicker">Choose a test</p>
                 <h2 id="testTitle">Ready when you are.</h2>
               </div>
             </div>
             <div class="top-actions">
+              <section id="statusStrip" class="status-strip" aria-label="Practice status">
+                <div class="status-pill">
+                  <span class="muted">Progress</span>
+                  <strong id="progressText">0 / 0</strong>
+                </div>
+                <div class="status-pill">
+                  <span class="muted">Score</span>
+                  <strong id="scoreText">0%</strong>
+                </div>
+                <div class="status-pill">
+                  <span class="muted">Answered</span>
+                  <strong id="answeredText">0</strong>
+                </div>
+              </section>
               <span id="timerText" class="timer-pill">00:00</span>
-              <button id="shuffleBtn" class="ghost-btn" type="button">Shuffle</button>
-              <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
             </div>
           </header>
-
-          <section id="statusStrip" class="status-strip" aria-label="Practice status">
-            <div class="status-pill">
-              <span class="muted">Progress</span>
-              <strong id="progressText">0 / 0</strong>
-            </div>
-            <div class="status-pill">
-              <span class="muted">Score</span>
-              <strong id="scoreText">0%</strong>
-            </div>
-            <div class="status-pill">
-              <span class="muted">Answered</span>
-              <strong id="answeredText">0</strong>
-            </div>
-            <button id="toggleHeaderBtn" class="status-toggle" type="button" aria-label="Minimize practice header" title="Minimize practice header">-</button>
-          </section>
         </div>
 
         <section class="question-card" aria-live="polite">
           <div class="question-meta">
             <span id="questionNumber">Question</span>
+            <button id="flagBtn" class="flag-btn" type="button" aria-label="Flag question" aria-pressed="false">
+              <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" class="flag-regular" aria-hidden="true">
+                <path class="windsock-stroke" d="M62 56v208" />
+                <path class="windsock-stroke" d="M80 121l43-44 142 24v62l-142 24-43-44Z" />
+                <path class="windsock-stroke" d="M123 80v104M174 88v87M224 97v69M80 121l43 63" />
+              </svg>
+              <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" class="flag-solid" aria-hidden="true">
+                <path class="windsock-pole" d="M62 56v208" />
+                <path class="windsock-fill" d="M80 121l43-44 142 24c7 1 12 7 12 14v36c0 7-5 13-12 14l-142 24-43-44 43-12Z" />
+                <path class="windsock-cutout" d="M176 101l45 8v49l-45 8Z" />
+              </svg>
+            </button>
           </div>
 
           <div id="questionText" class="rich-text question-text"></div>
+          <section id="contextDock" class="context-dock" aria-label="Question context" hidden>
+            <div class="context-header">
+              <div>
+                <span class="dot"></span>
+                <strong>Context</strong>
+              </div>
+              <div class="context-actions">
+                <button id="dockToggleBtn" class="context-toggle-btn" type="button" aria-label="Minimize context">Minimize</button>
+              </div>
+            </div>
+            <div id="contextBody" class="context-body rich-text"></div>
+          </section>
           <div id="answerArea" class="answer-area"></div>
           <div id="feedback" class="feedback" aria-live="polite"></div>
 
           <footer class="question-actions">
-            <button id="prevBtn" class="nav-btn" type="button">Previous</button>
+            <button id="prevBtn" class="nav-btn flight-nav back-flight" type="button">
+              <span class="flight-icon" aria-hidden="true">
+                <svg viewBox="0 0 13 13" width="18">
+                  <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z"></path>
+                </svg>
+              </span>
+              <span class="flight-text">Back</span>
+            </button>
             <div class="assist-actions">
-              <button id="flagBtn" class="flag-btn" type="button">Flag</button>
               <button id="hintBtn" class="ghost-btn" type="button">Hint</button>
               <button id="revealBtn" class="ghost-btn" type="button">Reveal</button>
-              <button id="resetQuestionBtn" class="text-danger" type="button" hidden>Reset</button>
+              <button id="resetQuestionBtn" class="refresh-btn" type="button" aria-label="Reset question" hidden>
+                <svg class="refresh-icon" aria-hidden="true" viewBox="0 0 512 512">
+                  <path d="M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2l-41.6 41.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-.9L327 183c-6.9 6.9-8.9 17.2-5.2 26.2S334.3 224 344 224h119.5z" />
+                </svg>
+              </button>
             </div>
-            <button id="nextBtn" class="nav-btn primary" type="button">Next</button>
+            <button id="nextBtn" class="nav-btn primary flight-nav next-flight" type="button">
+              <span class="flight-icon" aria-hidden="true">
+                <svg viewBox="0 0 13 13" width="18">
+                  <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z"></path>
+                </svg>
+              </span>
+              <span class="flight-text">Next</span>
+            </button>
           </footer>
         </section>
       </main>
@@ -162,27 +226,12 @@
       </section>
     </div>
 
-    <section id="contextDock" class="context-dock" aria-label="Question context" hidden>
-      <div class="context-header">
-        <div>
-          <span class="dot"></span>
-          <strong>Context</strong>
-        </div>
-        <div class="context-actions">
-          <button id="dockPositionBtn" class="icon-btn" type="button" aria-label="Move context">^</button>
-          <button id="dockToggleBtn" class="icon-btn" type="button" aria-label="Toggle context">-</button>
-        </div>
-      </div>
-      <div id="contextBody" class="context-body rich-text"></div>
-    </section>
-
     <section id="logModal" class="log-modal" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden>
       <header class="log-header">
         <div>
           <h2 id="logTitle">Run log</h2>
           <p class="log-caption">This log is saved in this browser and can clear if browser or site data is cleared.</p>
         </div>
-        <button id="closeLogBtn" class="icon-btn" type="button" aria-label="Close log">x</button>
       </header>
       <div id="logList" class="log-list"></div>
     </section>
@@ -193,7 +242,22 @@
           <p class="kicker">Question bank</p>
           <h2 id="searchTitle">Search</h2>
         </div>
-        <button id="closeSearchBtn" class="icon-btn" type="button" aria-label="Close search">x</button>
+        <label class="search-answers-toggle" for="searchAnswersToggle">
+          <span>Show answers</span>
+          <span class="plane-switch">
+            <input id="searchAnswersToggle" type="checkbox" />
+            <span class="plane-switch-track" aria-hidden="true">
+              <span class="plane-switch-thumb">
+                <svg viewBox="0 0 13 13">
+                  <path d="M1.55989957,5.41666667 L5.51582215,5.41666667 L4.47015462,0.108333333 C4.47015462,0.0634601974 4.49708054,0.0249592654 4.5354546,0.00851337035 L4.57707145,0 L5.36229752,0 C5.43359776,0 5.50087375,0.028779451 5.55026392,0.0782711996 L5.59317877,0.134368264 L7.13659662,2.81558333 L8.29565964,2.81666667 C8.53185377,2.81666667 8.72332694,3.01067661 8.72332694,3.25 C8.72332694,3.48932339 8.53185377,3.68333333 8.29565964,3.68333333 L7.63589819,3.68225 L8.63450135,5.41666667 L11.9308317,5.41666667 C12.5213171,5.41666667 13,5.90169152 13,6.5 C13,7.09830848 12.5213171,7.58333333 11.9308317,7.58333333 L8.63450135,7.58333333 L7.63589819,9.31666667 L8.29565964,9.31666667 C8.53185377,9.31666667 8.72332694,9.51067661 8.72332694,9.75 C8.72332694,9.98932339 8.53185377,10.1833333 8.29565964,10.1833333 L7.13659662,10.1833333 L5.59317877,12.8656317 C5.55725264,12.9280353 5.49882018,12.9724157 5.43174295,12.9907056 L5.36229752,13 L4.57707145,13 L4.55610333,12.9978962 C4.51267695,12.9890959 4.48069792,12.9547924 4.47230803,12.9134397 L4.47223088,12.8704208 L5.51582215,7.58333333 L1.55989957,7.58333333 L0.891288881,8.55114605 C0.853775374,8.60544678 0.798421006,8.64327676 0.73629202,8.65879796 L0.672314689,8.66666667 L0.106844414,8.66666667 L0.0715243949,8.66058466 C0.0297243066,8.6457608 0.00275502199,8.60729104 0,8.5651586 L0.00593007386,8.52254537 L0.580855011,6.85813984 C0.64492547,6.67265611 0.6577034,6.47392717 0.619193545,6.28316421 L0.580694768,6.14191703 L0.00601851064,4.48064746 C0.00203480725,4.4691314 0,4.45701613 0,4.44481314 C0,4.39994001 0.0269259152,4.36143908 0.0652999725,4.34499318 L0.106916826,4.33647981 L0.672546853,4.33647981 C0.737865848,4.33647981 0.80011301,4.36066329 0.848265401,4.40322477 L0.89131128,4.45169723 L1.55989957,5.41666667 Z" fill="currentColor"></path>
+                </svg>
+              </span>
+              <span class="street-middle"></span>
+              <span class="cloud"></span>
+              <span class="cloud two"></span>
+            </span>
+          </span>
+        </label>
       </header>
       <div class="search-body">
         <label class="search-field" for="searchInput">
@@ -210,10 +274,18 @@
           <p class="kicker">Finished</p>
           <h2 id="resultsTitle">Test results</h2>
         </div>
-        <button id="closeResultsBtn" class="icon-btn" type="button" aria-label="Close results">x</button>
       </header>
       <div id="resultsSummary" class="results-summary"></div>
       <div id="resultsList" class="results-list"></div>
+    </section>
+
+    <section id="confirmModal" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+      <h2 id="confirmTitle">Delete unfinished test?</h2>
+      <p id="confirmMessage">This saved progress will be removed.</p>
+      <div class="confirm-actions">
+        <button id="cancelDeleteBtn" class="ghost-btn" type="button">Cancel</button>
+        <button id="confirmDeleteBtn" class="nav-btn danger" type="button">Delete</button>
+      </div>
     </section>
 
     <script src="./app.js"></script>

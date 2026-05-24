@@ -1885,20 +1885,6 @@ button {
   overflow: visible;
 }
 
-.hangar-airplane {
-  fill: currentColor;
-  opacity: 0.94;
-  pointer-events: none;
-}
-
-.hangar-door-curtain {
-  transform-box: view-box;
-  transform-origin: center;
-  transition: transform 760ms cubic-bezier(0.35, 0.01, 0.2, 1);
-  transition-delay: 400ms;
-  will-change: transform;
-}
-
 .hangar-door-panel {
   transform-box: view-box;
   transform-origin: center;
@@ -1942,20 +1928,11 @@ button {
   transition-delay: 400ms, 0ms;
 }
 
-#practiceHomeBtn:hover .hangar-door-curtain,
-#practiceHomeBtn:focus-visible .hangar-door-curtain {
-  transform: translateY(-248px);
-  transition-delay: 400ms;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .hangar-door-curtain,
   .hangar-door-panel {
     transition: none;
   }
 
-  #practiceHomeBtn:hover .hangar-door-curtain,
-  #practiceHomeBtn:focus-visible .hangar-door-curtain,
   #practiceHomeBtn:hover .hangar-door-top,
   #practiceHomeBtn:focus-visible .hangar-door-top,
   #practiceHomeBtn:hover .hangar-door-middle,

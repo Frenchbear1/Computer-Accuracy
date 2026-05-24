@@ -86,6 +86,11 @@ function categoryId(value) {
   return `category--${slug || "uncategorized"}`;
 }
 
+function categorySort(left, right) {
+  if (left.count !== right.count) return right.count - left.count;
+  return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+}
+
 function rowCategory(row) {
   return categoryLabel(
     row.problem_type ||
@@ -199,7 +204,7 @@ function listCategories() {
   });
 
   return Array.from(categories.values())
-    .sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: "base" }))
+    .sort(categorySort)
     .map(({ key, ...category }) => category);
 }
 

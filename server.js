@@ -14,7 +14,10 @@ const MIME = {
   ".css": "text/css; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
   ".svg": "image/svg+xml",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
 };
 
 function parseCsv(text) {
@@ -95,6 +98,11 @@ function categoryId(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `category--${slug || "uncategorized"}`;
+}
+
+function categorySort(left, right) {
+  if (left.count !== right.count) return right.count - left.count;
+  return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
 }
 
 function rowCategory(row) {
@@ -203,7 +211,7 @@ function listCategories() {
   });
 
   return Array.from(categories.values())
-    .sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: "base" }))
+    .sort(categorySort)
     .map(({ key, ...category }) => category);
 }
 

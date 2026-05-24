@@ -6,6 +6,7 @@ const AUTO_FINISH_KEY = "computerAccuracyAutoFinishHour:v1";
 const SHUFFLE_QUESTIONS_KEY = "computerAccuracyShuffleQuestions:v1";
 const SELECTED_TEST_KEY = "computerAccuracySelectedTest:v1";
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const START_ROLL_SHRINK_MS = 260;
 const STATIC_DATA_ROOT = new URL("./data/", window.location.href);
 
 const state = {
@@ -18,6 +19,7 @@ const state = {
   menuMode: "tests",
   reviewMode: false,
   started: false,
+  startingTest: false,
   timerStartedAt: null,
   timerInterval: null,
   timerElapsedMs: 0,
@@ -35,6 +37,11 @@ const state = {
   flags: new Map(),
   helpers: new Map(),
   contextCollapsed: false,
+  homeLogoDrag: null,
+  homeLogoRotation: 0,
+  homeLogoAnimationTimer: null,
+  homeLogoResetTimer: null,
+  homeLogoSuppressClick: false,
   searchShowAnswers: false,
   searchIndex: [],
   searchIndexLoaded: false,
@@ -44,6 +51,8 @@ const state = {
 
 const els = {
   homeScreen: $("#homeScreen"),
+  homeLogoButton: $("#homeLogoBtn"),
+  homeLogo: $(".home-logo"),
   practiceShell: $("#practiceShell"),
   practiceHeader: $("#practiceHeader"),
   testDrawer: $("#testDrawer"),
@@ -125,8 +134,31 @@ function normalizeText(value) {
 function extractNumbers(value) {
   return String(value || "")
     .replace(/,/g, "")
-    .match(/-?\d+(?:\.\d+)?/g)
+    .match(/-?(?:\d+(?:\.\d+)?|\.\d+)/g)
     ?.map(Number) || [];
+}
+
+function numericAnswerRange(correct) {
+  const normalized = String(correct || "").replace(/,/g, "");
+  const numberPattern = "-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)";
+  const unsignedNumberPattern = "(?:\\d+(?:\\.\\d+)?|\\.\\d+)";
+  const plusMinusPattern = new RegExp(
+    `(${numberPattern})[^\\d+\\-]*?(?:\\+\\/-|±|\\+\\s*or\\s*-)\\s*(${unsignedNumberPattern})`,
+    "i"
+  );
+  const plusMinus = normalized.match(plusMinusPattern);
+  if (plusMinus) {
+    const center = Number(plusMinus[1]);
+    const tolerance = Number(plusMinus[2]);
+    if (Number.isFinite(center) && Number.isFinite(tolerance)) {
+      return [center - tolerance, center + tolerance];
+    }
+  }
+
+  const numbers = extractNumbers(correct);
+  if (numbers.length >= 2) return [Math.min(numbers[0], numbers[1]), Math.max(numbers[0], numbers[1])];
+  if (numbers.length === 1) return [numbers[0] - 0.02, numbers[0] + 0.02];
+  return null;
 }
 
 function answerMatches(input, correct) {
@@ -136,17 +168,11 @@ function answerMatches(input, correct) {
   if (left === right) return true;
 
   const inputNumbers = extractNumbers(input);
-  const correctNumbers = extractNumbers(correct);
-  if (!inputNumbers.length || !correctNumbers.length) return false;
+  const range = numericAnswerRange(correct);
+  if (!inputNumbers.length || !range) return false;
 
   const value = inputNumbers[0];
-  if (correctNumbers.length >= 2) {
-    const low = Math.min(correctNumbers[0], correctNumbers[1]);
-    const high = Math.max(correctNumbers[0], correctNumbers[1]);
-    return value >= low - 0.02 && value <= high + 0.02;
-  }
-
-  return Math.abs(value - correctNumbers[0]) <= 0.02;
+  return value >= range[0] - 0.02 && value <= range[1] + 0.02;
 }
 
 function clearNode(node) {
@@ -272,6 +298,14 @@ function isCategorySelection(id = state.selectedTestId) {
   return state.categories.some((category) => category.id === id);
 }
 
+function sortCategoriesByCount(categories) {
+  return [...categories].sort((left, right) => {
+    const countDelta = Number(right.count || 0) - Number(left.count || 0);
+    if (countDelta) return countDelta;
+    return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+  });
+}
+
 function questionId(question) {
   return String(question?.uid || question?.number || "");
 }
@@ -302,6 +336,31 @@ function saveRunLog() {
   } catch {
     setFeedback("The run log could not be saved in this browser.", "bad");
   }
+}
+
+function completedRunKeys() {
+  const keys = new Set();
+  state.runLog.forEach((run) => {
+    if (run.testId) keys.add(`id:${run.testId}`);
+    if (run.testTitle) keys.add(`title:${normalizeText(run.testTitle)}`);
+  });
+  return keys;
+}
+
+function hasCompletedRun(item, keys = completedRunKeys()) {
+  return keys.has(`id:${item.id}`) || keys.has(`title:${normalizeText(item.title)}`);
+}
+
+function completedRunsForItem(item) {
+  return state.runLog.filter(
+    (run) => run.testId === item.id || normalizeText(run.testTitle) === normalizeText(item.title)
+  );
+}
+
+function bestRunPercentForItem(item) {
+  const runs = completedRunsForItem(item).filter((run) => Number(run.total) > 0);
+  if (!runs.length) return null;
+  return runs.reduce((best, run) => Math.max(best, scorePercent(run)), 0);
 }
 
 function loadIncompleteTests() {
@@ -498,10 +557,7 @@ function renderRunLog() {
     const title = document.createElement("h3");
     title.textContent = group.title;
 
-    const attempts = document.createElement("p");
-    attempts.textContent = `${group.runs.length} ${attemptWord(group.runs.length)}`;
-
-    titleBlock.append(title, attempts);
+    titleBlock.append(title);
 
     const stats = document.createElement("div");
     stats.className = "log-group-stats";
@@ -545,14 +601,6 @@ function renderRunLog() {
 
       const meta = document.createElement("div");
       meta.className = "log-meta";
-      addStat(meta, `Time ${formatElapsed(run.elapsedMs || 0)}`);
-      addStat(meta, `${run.correct || 0}/${run.total || 0} right`);
-      addStat(meta, `${scorePercent(run)}%`);
-      if (Number.isFinite(Number(run.answered))) {
-        addStat(meta, `${run.answered || 0} answered`);
-      }
-
-      main.append(titleRow, meta);
 
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
@@ -564,7 +612,17 @@ function renderRunLog() {
         deleteRun(run.id);
       });
 
-      row.append(main, deleteButton);
+      meta.appendChild(deleteButton);
+      addStat(meta, formatElapsed(run.elapsedMs || 0));
+      addStat(meta, `${run.correct || 0}/${run.total || 0}`);
+      addStat(meta, `${scorePercent(run)}%`);
+      if (Number.isFinite(Number(run.answered))) {
+        addStat(meta, `${run.answered || 0} ans`);
+      }
+
+      main.append(titleRow, meta);
+
+      row.append(main);
       attemptList.appendChild(row);
     });
 
@@ -826,6 +884,7 @@ function deleteRun(id) {
   state.runLog = state.runLog.filter((run) => run.id !== id);
   saveRunLog();
   renderRunLog();
+  renderMenu();
 }
 
 function formatElapsed(ms) {
@@ -842,30 +901,36 @@ function elapsedMs() {
   return Date.now() - state.timerStartedAt;
 }
 
+function shouldUseCountdownTimer() {
+  return Boolean(
+    state.autoFinishHour &&
+      state.started &&
+      state.currentTest &&
+      supportsAutoFinish(state.currentTest)
+  );
+}
+
 function updateTimer() {
   const elapsed = elapsedMs();
-  if (!elapsed) {
-    els.timerText.textContent = "00:00";
-    return;
-  }
+  const useCountdown = shouldUseCountdownTimer();
+  const remaining = Math.max(0, ONE_HOUR_MS - elapsed);
+  els.timerText.classList.toggle("countdown", useCountdown);
+  els.timerText.setAttribute("aria-label", useCountdown ? "Time remaining" : "Elapsed time");
 
   if (
-    state.autoFinishHour &&
-    state.started &&
-    state.currentTest &&
-    supportsAutoFinish(state.currentTest) &&
+    useCountdown &&
     state.timerStartedAt &&
     !state.activeRunSaved &&
     elapsed >= ONE_HOUR_MS
   ) {
     state.timerElapsedMs = ONE_HOUR_MS;
     state.timerStartedAt = Date.now() - ONE_HOUR_MS;
-    els.timerText.textContent = formatElapsed(ONE_HOUR_MS);
+    els.timerText.textContent = formatElapsed(0);
     finishCurrentRun();
     return;
   }
 
-  els.timerText.textContent = formatElapsed(elapsed);
+  els.timerText.textContent = useCountdown ? formatElapsed(remaining) : formatElapsed(elapsed);
 }
 
 function startTimer(initialElapsedMs = 0, runId = createRunId()) {
@@ -887,6 +952,229 @@ function stopTimer() {
   state.timerInterval = null;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+}
+
+function setHomeLogoRotation(degrees) {
+  state.homeLogoRotation = degrees;
+  els.homeLogo?.style.setProperty("--logo-rotate", `${degrees.toFixed(2)}deg`);
+}
+
+function restartHomeLogoAnimation(className, durationMs) {
+  const logo = els.homeLogo;
+  if (!logo) return;
+
+  window.clearTimeout(state.homeLogoAnimationTimer);
+  logo.classList.remove("logo-wiggle", "logo-press-wiggle");
+  void logo.offsetWidth;
+  logo.classList.add(className);
+  state.homeLogoAnimationTimer = window.setTimeout(() => {
+    logo.classList.remove(className);
+    state.homeLogoAnimationTimer = null;
+  }, durationMs);
+}
+
+function playHomeLogoWiggle() {
+  const logo = els.homeLogo;
+  if (!logo || els.homeScreen.hidden || state.homeLogoDrag || prefersReducedMotion()) return;
+  restartHomeLogoAnimation("logo-wiggle", 820);
+}
+
+function playHomeLogoPressWiggle(event) {
+  const logo = els.homeLogo;
+  if (!logo || els.homeScreen.hidden || state.homeLogoDrag || prefersReducedMotion()) return;
+
+  const rect = logo.getBoundingClientRect();
+  const hasPointerPosition = Number.isFinite(event?.clientX) && Number.isFinite(event?.clientY) && event.clientX !== 0;
+  const pointX = hasPointerPosition ? event.clientX : rect.left + rect.width / 2;
+  const pointY = hasPointerPosition ? event.clientY : rect.top + rect.height * 0.72;
+  const x = clampNumber((pointX - rect.left) / rect.width - 0.5, -0.5, 0.5) * 2;
+  const y = clampNumber((pointY - rect.top) / rect.height - 0.5, -0.5, 0.5) * 2;
+  const distance = clampNumber(Math.hypot(x, y), 0.35, 1);
+  const strength = 12 + distance * 10;
+  const pressX = -y * strength;
+  const pressY = x * strength;
+
+  logo.style.setProperty("--logo-press-x", `${pressX.toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-y", `${pressY.toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-x-rebound", `${(-pressX * 0.42).toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-y-rebound", `${(-pressY * 0.42).toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-x-settle", `${(pressX * 0.18).toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-y-settle", `${(pressY * 0.18).toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-x-last", `${(-pressX * 0.08).toFixed(2)}deg`);
+  logo.style.setProperty("--logo-press-y-last", `${(-pressY * 0.08).toFixed(2)}deg`);
+
+  restartHomeLogoAnimation("logo-press-wiggle", 840);
+}
+
+function resetHomeLogoSpin() {
+  const logo = els.homeLogo;
+  if (!logo) return;
+  logo.classList.remove("logo-dragging");
+  logo.classList.add("logo-settling");
+  window.requestAnimationFrame(() => setHomeLogoRotation(0));
+  window.setTimeout(() => logo.classList.remove("logo-settling"), prefersReducedMotion() ? 0 : 980);
+}
+
+function beginHomeLogoDrag(event) {
+  if (!els.homeLogo || !els.homeLogoButton || els.homeScreen.hidden || state.startingTest) return;
+  if (event.button !== undefined && event.button !== 0) return;
+
+  window.clearTimeout(state.homeLogoResetTimer);
+  window.clearTimeout(state.homeLogoAnimationTimer);
+  state.homeLogoAnimationTimer = null;
+  els.homeLogo.classList.remove("logo-wiggle", "logo-press-wiggle", "logo-settling");
+  els.homeLogo.classList.add("logo-dragging");
+  els.homeLogoButton.classList.add("dragging");
+  els.homeLogoButton.setPointerCapture?.(event.pointerId);
+  state.homeLogoDrag = {
+    pointerId: event.pointerId,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    moved: false,
+  };
+}
+
+function spinHomeLogo(event) {
+  const drag = state.homeLogoDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+
+  window.clearTimeout(state.homeLogoResetTimer);
+  const dx = event.clientX - drag.lastX;
+  const dy = event.clientY - drag.lastY;
+  const movement = Math.hypot(dx, dy);
+  if (movement > 2) drag.moved = true;
+
+  const nextRotation = state.homeLogoRotation + dx * 1.35 + dy * 0.35;
+  setHomeLogoRotation(nextRotation);
+  drag.lastX = event.clientX;
+  drag.lastY = event.clientY;
+  state.homeLogoResetTimer = window.setTimeout(() => finishHomeLogoDrag(), 900);
+}
+
+function finishHomeLogoDrag() {
+  const drag = state.homeLogoDrag;
+  if (!drag) return;
+
+  try {
+    els.homeLogoButton?.releasePointerCapture?.(drag.pointerId);
+  } catch {}
+  els.homeLogoButton?.classList.remove("dragging");
+  els.homeLogo?.classList.remove("logo-dragging");
+  state.homeLogoDrag = null;
+  state.homeLogoSuppressClick = drag.moved;
+  if (drag.moved) state.homeLogoResetTimer = window.setTimeout(resetHomeLogoSpin, 80);
+  if (drag.moved) window.setTimeout(() => (state.homeLogoSuppressClick = false), 0);
+}
+
+function endHomeLogoDrag(event) {
+  const drag = state.homeLogoDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  finishHomeLogoDrag();
+}
+
+function cleanupStartTransition() {
+  els.homeScreen.classList.remove("start-transitioning");
+  if (els.homeLogo) els.homeLogo.style.visibility = "";
+  document.querySelectorAll(".start-roll-logo").forEach((node) => node.remove());
+}
+
+async function playStartTransition() {
+  cleanupStartTransition();
+  els.homeScreen.classList.add("start-transitioning");
+
+  const logo = els.homeLogo;
+  if (!logo || els.homeScreen.hidden || prefersReducedMotion()) {
+    await wait(180);
+    return;
+  }
+
+  const rect = logo.getBoundingClientRect();
+  if (!rect.width || !rect.height || typeof logo.animate !== "function") {
+    await wait(320);
+    return;
+  }
+
+  const clone = document.createElement("img");
+  clone.className = "start-roll-logo";
+  clone.src = logo.currentSrc || logo.src;
+  clone.alt = "";
+  clone.setAttribute("aria-hidden", "true");
+  Object.assign(clone.style, {
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  });
+  document.body.append(clone);
+  logo.style.visibility = "hidden";
+
+  const targetLeft = (window.innerWidth - rect.width) / 2;
+  const targetTop = (window.innerHeight - rect.height) / 2;
+  const dx = targetLeft - rect.left;
+  const dy = targetTop - rect.top;
+  const radius = Math.max(rect.width, rect.height) / 2;
+  const travel = Math.hypot(dx, dy);
+  const physicalRotation = (travel / radius) * (180 / Math.PI);
+  const rotation = Math.max(360, Math.ceil(physicalRotation / 360) * 360);
+  const rollMs = Math.round(clampNumber(620 + travel * 1.8, 760, 1180));
+
+  const animation = clone.animate(
+    [
+      {
+        opacity: 1,
+        transform: "translate3d(0, 0, 0) rotate(0deg) scale(1)",
+        easing: "cubic-bezier(0.17, 0.78, 0.24, 1)",
+      },
+      {
+        offset: rollMs / (rollMs + START_ROLL_SHRINK_MS),
+        opacity: 1,
+        transform: `translate3d(${dx}px, ${dy}px, 0) rotate(${rotation}deg) scale(1)`,
+        easing: "cubic-bezier(0.42, 0, 0.9, 0.45)",
+      },
+      {
+        opacity: 0,
+        transform: `translate3d(${dx}px, ${dy}px, 0) rotate(${rotation}deg) scale(0.16)`,
+      },
+    ],
+    {
+      duration: rollMs + START_ROLL_SHRINK_MS,
+      fill: "forwards",
+    }
+  );
+
+  try {
+    await animation.finished;
+  } catch {
+    // If the browser cancels the animation, the quiz should still start.
+  } finally {
+    clone.remove();
+  }
+}
+
+function revealPracticeShell() {
+  els.homeScreen.hidden = true;
+  cleanupStartTransition();
+  els.practiceShell.hidden = false;
+  setQuizView(true);
+  els.practiceShell.classList.add("practice-entering");
+  window.setTimeout(() => els.practiceShell.classList.remove("practice-entering"), 360);
+}
+
+function setQuizView(active) {
+  document.documentElement.classList.toggle("quiz-view", active);
+  document.body.classList.toggle("quiz-view", active);
+}
+
 function renderHomeSelection() {
   const selected = selectedTestMeta();
   renderResumePanel();
@@ -904,7 +1192,7 @@ function renderHomeSelection() {
   els.selectedTestTitle.textContent = selected.title;
   els.selectedTestMeta.textContent = `${selected.count} questions`;
   els.autoFinishSetting.hidden = !supportsAutoFinish(selected);
-  els.startBtn.disabled = false;
+  els.startBtn.disabled = state.startingTest;
 }
 
 function setMenuOpen(open) {
@@ -1458,7 +1746,7 @@ function timelineStatus(question) {
 function timelineStatusColor(status) {
   return {
     unanswered: "#a8a49a",
-    pending: "#74716a",
+    pending: "#295d5d",
     complete: "#227b51",
     incorrect: "#a13b36",
     flagged: "#d4a72c",
@@ -1512,32 +1800,10 @@ function renderTimeline() {
   els.questionTimeline.hidden = !state.started || !questions.length;
   if (!state.started || !questions.length) return;
 
-  const usePicker = questions.length > 40;
-  els.questionTimeline.classList.toggle("compact", usePicker);
-  els.timelineList.hidden = usePicker;
-  els.timelinePicker.hidden = !usePicker;
-  if (!usePicker) els.timelinePicker.open = false;
-
-  if (usePicker) {
-    const current = currentQuestion() || questions[0];
-    els.timelinePicker.open = false;
-    els.timelinePickerLabel.textContent = `Question ${current?.number || 1} of ${questions.length}`;
-
-    questions.forEach((question) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `timeline-option ${timelineStatus(question)}`;
-      button.classList.toggle("current", answerKey(question) === answerKey(current));
-      button.textContent = timelineOptionLabel(question);
-      button.setAttribute("aria-label", `Jump to ${timelineOptionLabel(question)}`);
-      button.addEventListener("click", () => {
-        els.timelinePicker.open = false;
-        jumpToQuestion(question);
-      });
-      els.timelinePickerMenu.appendChild(button);
-    });
-    return;
-  }
+  els.questionTimeline.classList.remove("compact");
+  els.timelineList.hidden = false;
+  els.timelinePicker.hidden = true;
+  els.timelinePicker.open = false;
 
   els.timelineList.style.setProperty("--timeline-count", questions.length);
   els.timelineList.style.setProperty("--timeline-gradient", timelineGradient(questions));
@@ -1585,6 +1851,7 @@ function finishCurrentRun() {
   removeIncompleteProgress(run.id);
   saveRunLog();
   if (!els.logModal.hidden) renderRunLog();
+  renderMenu();
   setFeedback(`Run saved: ${correct}/${total} right in ${formatElapsed(elapsed)}.`, "good");
   renderQuestion();
   updateControls(question);
@@ -1613,6 +1880,7 @@ function renderMenu() {
         .filter((test) => els.yearFilter.value === "all" || String(test.year) === els.yearFilter.value)
         .filter((test) => els.eventFilter.value === "all" || test.event === els.eventFilter.value)
       : state.categories;
+  const completedKeys = completedRunKeys();
 
   if (!items.length) {
     const empty = document.createElement("div");
@@ -1626,10 +1894,51 @@ function renderMenu() {
   }
 
   items.forEach((item) => {
+    const completed = hasCompletedRun(item, completedKeys);
+    const bestPercent = completed ? bestRunPercentForItem(item) : null;
     const button = document.createElement("button");
     button.type = "button";
     button.className = `test-item ${state.selectedTestId === item.id ? "active" : ""}`;
-    button.innerHTML = `<span>${item.title}</span><small>${item.count}</small>`;
+    button.classList.toggle("complete", completed);
+    button.setAttribute(
+      "aria-label",
+      `${item.title}${completed && bestPercent !== null ? `, completed, best ${bestPercent}%` : ""}, ${item.count} questions`
+    );
+
+    const main = document.createElement("span");
+    main.className = "test-item-main";
+
+    const check = document.createElement("span");
+    check.className = "test-complete-check";
+    check.setAttribute("aria-hidden", "true");
+    check.textContent = "✓";
+
+    const title = document.createElement("span");
+    title.className = "test-item-title";
+    title.textContent = item.title;
+    if (completed && bestPercent !== null) title.dataset.best = `${bestPercent}%`;
+
+    const count = document.createElement("small");
+    count.textContent = item.count;
+
+    main.append(title);
+    if (completed) {
+      const completion = document.createElement("span");
+      completion.className = "test-complete-badge";
+      completion.setAttribute("aria-hidden", "true");
+
+      const completionCheck = document.createElement("span");
+      completionCheck.className = "test-complete-check";
+      completionCheck.textContent = "✓";
+
+      const percent = document.createElement("span");
+      percent.className = "test-best-percent";
+      percent.textContent = bestPercent === null ? "" : `${bestPercent}%`;
+
+      completion.append(completionCheck, percent);
+      main.append(completion);
+    }
+    button.append(main, count);
     button.addEventListener("click", () => selectTest(item.id));
     els.testMenu.appendChild(button);
   });
@@ -1685,15 +1994,164 @@ function tableInContext(question) {
   return Boolean(question?.table && question.context?.includes("[[TABLE]]"));
 }
 
+function questionScope(question) {
+  return String(question?.referenceScope || question?.sourceTestId || state.currentTest?.id || "");
+}
+
+function referencedQuestionNumbers(question) {
+  const numbers = [];
+  const seen = new Set();
+  const currentNumber = questionNumber(question);
+  const combined = `${question?.context || ""} ${question?.question || ""}`
+    .replace(/\[\[(?:DIVIDER|TABLE|NEXT_LINE)\]\]/g, " ");
+  const trigger = String.raw`(?:refer\w*(?:\s+to)?|in\s+reference\s+to|use\s+(?:the\s+)?information\s+from|information\s+from|based\s+on|from)`;
+
+  const add = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 1 || number === currentNumber || seen.has(number)) return;
+    seen.add(number);
+    numbers.push(number);
+  };
+
+  for (const match of combined.matchAll(new RegExp(`${trigger}[^.\\n]*?(?:questions?|problems?)\\s*#?\\s*(\\d{1,2})(?:\\s*(?:,|and)\\s*#?\\s*(\\d{1,2}))?`, "gi"))) {
+    add(match[1]);
+    add(match[2]);
+  }
+
+  for (const match of combined.matchAll(new RegExp(`${trigger}[^.\\n]*?#\\s*(\\d{1,2})`, "gi"))) {
+    add(match[1]);
+  }
+
+  if (
+    currentNumber !== null &&
+    new RegExp(`${trigger}[^.\\n]*?(?:previous|preceding)\\s+(?:question|problem)`, "i").test(combined)
+  ) {
+    add(currentNumber - 1);
+  }
+
+  return numbers;
+}
+
+function referencedQuestions(question) {
+  if (!state.currentTest || !question) return [];
+  const scope = questionScope(question);
+  return referencedQuestionNumbers(question)
+    .map((number) => {
+      const matches = state.currentTest.questions.filter((candidate) => questionNumber(candidate) === number);
+      return matches.find((candidate) => questionScope(candidate) === scope) || matches[0] || null;
+    })
+    .filter(Boolean);
+}
+
+function answerForQuestion(question) {
+  const direct = state.answers.get(answerKey(question));
+  if (direct) return direct;
+
+  const currentTestId = state.currentTest?.id;
+  const number = String(question?.number || "");
+  const scope = questionScope(question);
+  if (!currentTestId || !number) return null;
+
+  for (const [key, value] of state.answers.entries()) {
+    if (!key.startsWith(`${currentTestId}:`)) continue;
+    const storedId = key.slice(currentTestId.length + 1);
+    const storedQuestion = state.currentTest.questions.find((candidate) => questionId(candidate) === storedId);
+    if (storedQuestion) {
+      if (String(storedQuestion.number) === number && questionScope(storedQuestion) === scope) return value;
+      continue;
+    }
+    if (storedId === number) return value;
+  }
+
+  return null;
+}
+
+function contextWithoutInlineReferences(context) {
+  return String(context || "")
+    .split("[[DIVIDER]]")
+    .map((block) => block.trim())
+    .filter((block) => !/^Referenced\s+(?:question|problem)\s*#?\d{1,2}\s*:/i.test(block))
+    .join(" [[DIVIDER]] ");
+}
+
+function choicePill(choice, { selected = false, correct = false, incorrect = false } = {}) {
+  const pill = document.createElement("span");
+  pill.className = "search-choice-pill";
+  pill.classList.toggle("selected", selected);
+  pill.classList.toggle("correct", correct);
+  pill.classList.toggle("incorrect", incorrect);
+
+  const letter = document.createElement("strong");
+  letter.textContent = choice.letter;
+  const text = document.createElement("span");
+  text.textContent = choice.text;
+  pill.append(letter, text);
+  return pill;
+}
+
+function renderReferencedQuestion(question) {
+  const card = document.createElement("article");
+  card.className = "context-reference";
+
+  const header = document.createElement("div");
+  header.className = "context-reference-head";
+  const label = document.createElement("span");
+  label.className = "search-section-label";
+  label.textContent = questionLabel(question);
+  header.appendChild(label);
+
+  const body = document.createElement("div");
+  body.className = "context-reference-question rich-text";
+  renderRichText(body, question.question || "", tableInQuestion(question) ? question.table : null);
+
+  const choices = document.createElement("div");
+  choices.className = "search-choice-row context-reference-choices";
+  const saved = answerForQuestion(question);
+
+  if (question.choices?.length) {
+    question.choices.forEach((choice) => {
+      const isSelected = saved?.checked && saved.selected === choice.letter;
+      choices.appendChild(
+        choicePill(choice, {
+          selected: isSelected,
+          correct: isSelected && shouldShowAnswerResults() && saved.correct,
+          incorrect: isSelected && shouldShowAnswerResults() && !saved.correct,
+        })
+      );
+    });
+  } else {
+    const pill = document.createElement("span");
+    pill.className = "search-choice-pill";
+    pill.classList.toggle("selected", Boolean(saved?.checked));
+    const label = document.createElement("strong");
+    label.textContent = "Answer";
+    const text = document.createElement("span");
+    text.textContent = saved?.checked ? saved.input || "Blank" : "Not answered";
+    pill.append(label, text);
+    choices.appendChild(pill);
+  }
+
+  card.append(header, body, choices);
+  return card;
+}
+
 function renderContext(question) {
-  const contextTable = tableInContext(question) ? question.table : null;
-  const hasContext = Boolean(question?.context || contextTable);
+  const references = referencedQuestions(question);
+  const cleanedContext = contextWithoutInlineReferences(question?.context);
+  const contextTable = tableInContext(question) && cleanedContext.includes("[[TABLE]]") ? question.table : null;
+  const hasContext = Boolean(cleanedContext || contextTable || references.length);
   els.contextDock.hidden = !hasContext;
   els.contextDock.classList.toggle("hidden", !hasContext);
   els.contextDock.classList.toggle("collapsed", state.contextCollapsed);
   els.dockToggleBtn.textContent = state.contextCollapsed ? "Expand" : "Minimize";
   els.dockToggleBtn.setAttribute("aria-label", state.contextCollapsed ? "Expand context" : "Minimize context");
-  renderRichText(els.contextBody, question?.context || "", contextTable);
+  clearNode(els.contextBody);
+  const content = document.createElement("div");
+  content.className = "context-body-inner rich-text";
+  renderRichText(content, cleanedContext, contextTable);
+  references.forEach((reference) => content.appendChild(renderReferencedQuestion(reference)));
+  els.contextBody.appendChild(content);
+  els.contextBody.style.setProperty("--context-body-height", `${content.scrollHeight}px`);
 }
 
 function renderChoices(question, saved) {
@@ -2011,6 +2469,7 @@ async function resumeIncompleteTest(id) {
 
   els.homeScreen.hidden = true;
   els.practiceShell.hidden = false;
+  setQuizView(true);
   setMenuOpen(false);
   setLogOpen(false);
   setSearchOpen(false);
@@ -2052,6 +2511,7 @@ function goHome() {
   state.started = false;
   els.practiceShell.hidden = true;
   els.homeScreen.hidden = false;
+  setQuizView(false);
   els.questionTimeline.hidden = true;
   renderContext(null);
   renderHomeSelection();
@@ -2129,31 +2589,51 @@ async function loadTest(id) {
 }
 
 async function startSelectedTest() {
-  if (!state.selectedTestId) return;
-  els.homeScreen.hidden = true;
-  els.practiceShell.hidden = false;
+  if (!state.selectedTestId || state.startingTest) return;
+  state.startingTest = true;
+  els.startBtn.disabled = true;
+  const selectedTestId = state.selectedTestId;
+  const transition = playStartTransition().catch(() => {});
+
   setMenuOpen(false);
   setLogOpen(false);
   setSearchOpen(false);
   setResultsOpen(false);
-  state.started = false;
-  await loadTest(state.selectedTestId);
-  clearProgressForTest(state.currentTest.id);
-  state.currentIndex = 0;
-  state.reviewMode = false;
-  state.order = state.shuffleQuestions
-    ? shuffled(buildShuffleBlocks(state.currentTest.questions)).flat()
-    : [...state.currentTest.questions];
-  state.started = true;
-  startTimer();
-  renderQuestion();
-  saveIncompleteProgress();
+
+  try {
+    state.started = false;
+    els.practiceShell.hidden = true;
+    await loadTest(selectedTestId);
+    clearProgressForTest(state.currentTest.id);
+    state.currentIndex = 0;
+    state.reviewMode = false;
+    state.order = state.shuffleQuestions
+      ? shuffled(buildShuffleBlocks(state.currentTest.questions)).flat()
+      : [...state.currentTest.questions];
+    state.started = true;
+    renderQuestion();
+    await transition;
+    revealPracticeShell();
+    startTimer();
+    saveIncompleteProgress();
+  } catch (error) {
+    await transition;
+    state.started = false;
+    els.practiceShell.hidden = true;
+    els.homeScreen.hidden = false;
+    setQuizView(false);
+    cleanupStartTransition();
+    els.questionText.innerHTML = `<div class="empty-state">${error.message}</div>`;
+  } finally {
+    state.startingTest = false;
+    renderHomeSelection();
+  }
 }
 
 async function init() {
   const payload = await fetchCatalog();
   state.tests = payload.tests || [];
-  state.categories = payload.categories || [];
+  state.categories = sortCategoriesByCount(payload.categories || []);
 
   const years = ["all", ...Array.from(new Set(state.tests.map((test) => test.year)))];
   els.yearFilter.innerHTML = years
@@ -2165,6 +2645,22 @@ async function init() {
   els.eventFilter.addEventListener("change", renderMenu);
   els.testModeBtn.addEventListener("click", () => setMenuMode("tests"));
   els.categoryModeBtn.addEventListener("click", () => setMenuMode("categories"));
+  els.homeLogoButton.addEventListener("click", (event) => {
+    if (state.homeLogoSuppressClick) return;
+    playHomeLogoPressWiggle(event);
+  });
+  els.homeLogoButton.addEventListener("pointerdown", beginHomeLogoDrag);
+  els.homeLogoButton.addEventListener("pointermove", spinHomeLogo);
+  els.homeLogoButton.addEventListener("pointerup", endHomeLogoDrag);
+  els.homeLogoButton.addEventListener("pointercancel", endHomeLogoDrag);
+  els.homeLogoButton.addEventListener("lostpointercapture", () => {
+    if (!state.homeLogoDrag) return;
+    finishHomeLogoDrag();
+  });
+  window.addEventListener("pointerup", endHomeLogoDrag);
+  window.addEventListener("pointercancel", endHomeLogoDrag);
+  window.addEventListener("mouseup", finishHomeLogoDrag);
+  window.addEventListener("blur", finishHomeLogoDrag);
   els.homeLogBtn.addEventListener("click", () => setLogOpen(true));
   els.homeSearchBtn.addEventListener("click", () => setSearchOpen(true));
   els.logBackdrop.addEventListener("click", () => setLogOpen(false));
@@ -2186,7 +2682,7 @@ async function init() {
   els.autoFinishToggle.addEventListener("change", () => {
     state.autoFinishHour = els.autoFinishToggle.checked;
     saveAutoFinishSetting();
-    if (state.autoFinishHour && state.started) updateTimer();
+    if (state.started) updateTimer();
   });
   els.shuffleToggle.addEventListener("change", () => {
     state.shuffleQuestions = els.shuffleToggle.checked;
@@ -2203,8 +2699,14 @@ async function init() {
   els.resetQuestionBtn.addEventListener("click", resetQuestion);
   els.flagBtn.addEventListener("click", toggleFlag);
   els.dockToggleBtn.addEventListener("click", () => {
-    state.contextCollapsed = !state.contextCollapsed;
-    renderContext(currentQuestion());
+    const willCollapse = !state.contextCollapsed;
+    els.contextDock.classList.remove("expanding", "minimizing");
+    els.contextDock.classList.add(willCollapse ? "minimizing" : "expanding");
+    window.setTimeout(() => els.contextDock.classList.remove("expanding", "minimizing"), 460);
+    state.contextCollapsed = willCollapse;
+    els.contextDock.classList.toggle("collapsed", state.contextCollapsed);
+    els.dockToggleBtn.textContent = state.contextCollapsed ? "Expand" : "Minimize";
+    els.dockToggleBtn.setAttribute("aria-label", state.contextCollapsed ? "Expand context" : "Minimize context");
   });
 
   document.addEventListener("keydown", (event) => {
@@ -2251,6 +2753,7 @@ async function init() {
   state.selectedTestId = loadSelectedTestId();
   setMenuMode("tests");
   renderHomeSelection();
+  window.setTimeout(playHomeLogoWiggle, 260);
   window.setTimeout(() => ensureSearchIndex().catch(() => {}), 300);
 }
 

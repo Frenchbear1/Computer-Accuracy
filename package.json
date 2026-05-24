@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "categorize": "node scripts/categorize-questions.js",
     "build:pages": "node scripts/build-pages.js"
   }
 }

@@ -431,7 +431,15 @@ async function fetchJson(url) {
   return response.json();
 }
 
+function shouldUseStaticData() {
+  return !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+}
+
 async function fetchCatalog() {
+  if (shouldUseStaticData()) {
+    return fetchJson(new URL("tests.json", STATIC_DATA_ROOT));
+  }
+
   try {
     return await fetchJson("/api/tests");
   } catch {
@@ -443,6 +451,10 @@ async function fetchSelection(id, type) {
   const encodedId = encodeURIComponent(id);
   const apiPath = type === "category" ? `/api/categories/${encodedId}` : `/api/tests/${encodedId}`;
   const staticPath = new URL(`${type === "category" ? "categories" : "tests"}/${encodedId}.json`, STATIC_DATA_ROOT);
+
+  if (shouldUseStaticData()) {
+    return fetchJson(staticPath);
+  }
 
   try {
     return await fetchJson(apiPath);

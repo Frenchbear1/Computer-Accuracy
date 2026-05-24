@@ -242,6 +242,11 @@ function writeJson(target, value) {
   fs.writeFileSync(target, JSON.stringify(value));
 }
 
+function copyDir(source, target) {
+  ensureDir(target);
+  fs.cpSync(source, target, { recursive: true });
+}
+
 function buildDocs() {
   const tests = listCsvFiles().map((fileName) => {
     const meta = parseMeta(fileName);
@@ -258,6 +263,7 @@ function buildDocs() {
   for (const file of ["index.html", "app.js", "styles.css"]) {
     fs.copyFileSync(path.join(PUBLIC_DIR, file), path.join(DOCS_DIR, file));
   }
+  copyDir(path.join(PUBLIC_DIR, "icons"), path.join(DOCS_DIR, "icons"));
 
   writeJson(path.join(DOCS_DIR, "data", "tests.json"), {
     csvDir: "./Code E6-B",

@@ -150,12 +150,19 @@ function listCsvFiles() {
   return fs
     .readdirSync(CSV_DIR)
     .filter((file) => parseMeta(file))
-    .sort((a, b) => {
-      const ma = parseMeta(a);
-      const mb = parseMeta(b);
-      if (ma.year !== mb.year) return mb.year - ma.year;
-      return ma.event.localeCompare(mb.event);
-    });
+    .sort(compareTestFiles);
+}
+
+function schoolYearSortKey(meta) {
+  return meta.event === "nationals" ? meta.year * 2 : (meta.year + 1) * 2 - 1;
+}
+
+function compareTestFiles(a, b) {
+  const ma = parseMeta(a);
+  const mb = parseMeta(b);
+  const keyDifference = schoolYearSortKey(mb) - schoolYearSortKey(ma);
+  if (keyDifference) return keyDifference;
+  return ma.title.localeCompare(mb.title, undefined, { sensitivity: "base" });
 }
 
 function buildQuestion(row, index, meta) {

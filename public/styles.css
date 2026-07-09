@@ -402,6 +402,10 @@ button {
   transform: translateY(10px) scale(0.985);
 }
 
+.home-screen.start-transitioning .home-message-bubble {
+  opacity: 0;
+}
+
 .home-screen.start-transitioning .home-card {
   animation: none;
 }
@@ -434,7 +438,9 @@ button {
   .home-logo,
   .home-title,
   .home-card,
-  .resume-panel {
+  .resume-panel,
+  .home-message-bubble,
+  .home-message-bubble span {
     transition: none;
   }
 
@@ -517,6 +523,84 @@ button {
   box-shadow: var(--shadow);
   backdrop-filter: blur(20px);
   animation: enter 260ms ease both;
+}
+
+.home-message-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  margin-top: 2px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(32, 32, 29, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(32, 32, 29, 0.54);
+  text-decoration: none;
+  opacity: 0.58;
+  backdrop-filter: blur(10px);
+  transition:
+    width 220ms ease,
+    gap 220ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.home-message-bubble:hover,
+.home-message-bubble:focus-visible {
+  gap: 6px;
+  width: 132px;
+  border-color: rgba(41, 93, 93, 0.26);
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(32, 32, 29, 0.78);
+  opacity: 0.9;
+  box-shadow: 0 10px 28px rgba(31, 30, 26, 0.08);
+}
+
+.home-message-bubble:focus-visible {
+  outline: 2px solid rgba(41, 93, 93, 0.22);
+  outline-offset: 3px;
+}
+
+.home-message-bubble svg {
+  flex: 0 0 auto;
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.home-message-bubble span {
+  flex: 0 0 auto;
+  max-width: 0;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  opacity: 0;
+  white-space: nowrap;
+  transition:
+    max-width 220ms ease,
+    opacity 150ms ease;
+}
+
+.home-message-bubble:hover span,
+.home-message-bubble:focus-visible span {
+  max-width: 86px;
+  opacity: 1;
+  transition-delay: 45ms;
 }
 
 .home-copy {

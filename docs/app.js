@@ -63,6 +63,7 @@ const els = {
   confirmBackdrop: $("#confirmBackdrop"),
   chooseTestBtn: $("#chooseTestBtn"),
   selectedTestKicker: $("#selectedTestKicker"),
+  homeMessageBubble: $(".home-message-bubble"),
   homeLogBtn: $("#homeLogBtn"),
   homeSearchBtn: $("#homeSearchBtn"),
   startBtn: $("#startBtn"),
@@ -1185,6 +1186,13 @@ function revealPracticeShell() {
 function setQuizView(active) {
   document.documentElement.classList.toggle("quiz-view", active);
   document.body.classList.toggle("quiz-view", active);
+}
+
+function openMessageEmail(event) {
+  event.preventDefault();
+  const href = els.homeMessageBubble?.href || "mailto:Dlabarre@liberty.edu";
+  const opened = window.open(href, "_blank");
+  if (!opened) window.location.href = href;
 }
 
 function renderHomeSelection() {
@@ -2673,6 +2681,7 @@ async function init() {
   window.addEventListener("pointercancel", endHomeLogoDrag);
   window.addEventListener("mouseup", finishHomeLogoDrag);
   window.addEventListener("blur", finishHomeLogoDrag);
+  els.homeMessageBubble.addEventListener("click", openMessageEmail);
   els.homeLogBtn.addEventListener("click", () => setLogOpen(true));
   els.homeSearchBtn.addEventListener("click", () => setSearchOpen(true));
   els.logBackdrop.addEventListener("click", () => setLogOpen(false));

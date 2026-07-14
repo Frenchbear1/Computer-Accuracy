@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev:phone": "node --watch server.js",
     "start": "node server.js",
     "categorize": "node scripts/categorize-questions.js",
     "build:pages": "node scripts/build-pages.js"

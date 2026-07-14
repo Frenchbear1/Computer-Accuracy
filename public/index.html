@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Computer Accuracy</title>
     <link rel="icon" href="./icons/favicon.ico?v=20260524-2" sizes="any" />
     <link rel="icon" type="image/png" href="./icons/icon-16x16.png?v=20260524-2" sizes="16x16" />
@@ -10,7 +10,17 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260524-2" />
     <link rel="manifest" href="./icons/site.webmanifest?v=20260524-2" />
     <meta name="theme-color" content="#f6f4ef" />
-    <link rel="stylesheet" href="./styles.css?v=20260709-1" />
+    <script>
+      (() => {
+        try {
+          if (localStorage.getItem("computerAccuracyTheme:v1") === "dark") {
+            document.documentElement.dataset.theme = "dark";
+            document.querySelector('meta[name="theme-color"]').content = "#101413";
+          }
+        } catch {}
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css?v=20260714-phone-34" />
   </head>
   <body>
     <button id="drawerBackdrop" class="drawer-backdrop" type="button" aria-label="Close menu" hidden></button>
@@ -45,10 +55,69 @@
 
     <main id="homeScreen" class="home-screen">
       <div class="home-stack">
-        <button id="homeLogoBtn" class="home-logo-button" type="button" aria-label="Play with CR-3">
-          <img class="home-logo" src="./icons/home-logo.png" alt="" aria-hidden="true" draggable="false" />
-        </button>
-        <h1 class="home-title">Computer Accuracy</h1>
+        <div class="home-logo-playground">
+          <button id="homeLogoBtn" class="home-logo-button" type="button" aria-label="Play with CR-3">
+            <img class="home-logo" src="./icons/home-logo.png" alt="" aria-hidden="true" draggable="false" />
+          </button>
+          <div class="home-logo-tools home-logo-tools-left" aria-label="CR-3 tricks left">
+            <button class="logo-tool-btn" type="button" data-logo-trick="spin" aria-label="Spin CR-3" title="Spin">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M17.8 6.2A8 8 0 0 0 4.1 11" />
+                <path d="M4 5v6h6" />
+                <path d="M6.2 17.8A8 8 0 0 0 19.9 13" />
+                <path d="M20 19v-6h-6" />
+              </svg>
+            </button>
+            <button class="logo-tool-btn" type="button" data-logo-trick="hop" aria-label="Hop and flip CR-3" title="Hop">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M5 17c3-6 11-6 14 0" />
+                <path d="M12 5v8" />
+                <path d="m8.5 8.5 3.5-3.5 3.5 3.5" />
+              </svg>
+            </button>
+            <button class="logo-tool-btn" type="button" data-logo-trick="roll" aria-label="Roll CR-3" title="Roll">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 15h9a4 4 0 1 0-4-4" />
+                <path d="M4 19h14" />
+                <path d="m15 7 3 4-3 4" />
+              </svg>
+            </button>
+          </div>
+          <div class="home-logo-tools home-logo-tools-right" aria-label="CR-3 tricks right">
+            <button class="logo-tool-btn" type="button" data-logo-trick="orbit" aria-label="Orbit CR-3" title="Orbit">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="7" />
+                <circle cx="18" cy="8" r="2" />
+              </svg>
+            </button>
+            <button class="logo-tool-btn" type="button" data-logo-trick="float" aria-label="Float CR-3" title="Float">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M5 15c2.2-2 4.5-2 6.7 0s4.5 2 6.8 0" />
+                <path d="M7 10c1.6-1.5 3.2-1.5 4.8 0s3.2 1.5 4.8 0" />
+              </svg>
+            </button>
+            <button class="logo-tool-btn" type="button" data-logo-trick="shimmy" aria-label="Shimmy CR-3" title="Shimmy">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M6 8h12" />
+                <path d="M6 16h12" />
+                <path d="m9 5-3 3 3 3" />
+                <path d="m15 13 3 3-3 3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="home-title-row">
+          <h1 class="home-title">Computer Accuracy</h1>
+          <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="Turn on dark mode" aria-pressed="false" title="Dark mode">
+            <svg class="theme-icon theme-icon-moon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M20.2 15.5A8.4 8.4 0 0 1 8.5 3.8 7.1 7.1 0 1 0 20.2 15.5Z" />
+            </svg>
+            <svg class="theme-icon theme-icon-sun" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+            </svg>
+          </button>
+        </div>
         <section class="home-card">
           <div class="home-copy">
             <div class="selected-test-row">
@@ -311,9 +380,13 @@
         </label>
       </header>
       <div class="search-body">
-        <label class="search-field" for="searchInput">
-          <input id="searchInput" type="search" autocomplete="off" placeholder="Keyword, answer, year, context..." />
-        </label>
+        <div class="search-field">
+          <label class="sr-only" for="searchInput">Search questions</label>
+          <div class="search-control">
+            <input id="searchInput" type="search" autocomplete="off" placeholder="Keyword, answer, year, context..." />
+            <button id="searchClearBtn" class="search-clear-btn" type="button" hidden>Clear</button>
+          </div>
+        </div>
         <div id="searchStatus" class="search-status" aria-live="polite"></div>
         <div id="searchResults" class="search-results"></div>
       </div>
@@ -339,6 +412,6 @@
       </div>
     </section>
 
-    <script src="./app.js?v=20260709-1"></script>
+    <script src="./app.js?v=20260714-phone-34"></script>
   </body>
 </html>

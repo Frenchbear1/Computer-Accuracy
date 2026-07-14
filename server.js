@@ -1,9 +1,13 @@
 const fs = require("fs");
 const http = require("http");
+const os = require("os");
 const path = require("path");
 const { URL } = require("url");
 
 const PORT = Number(process.env.PORT || 5177);
+const HOST = process.env.HOST || "0.0.0.0";
+const LIVE_RELOAD_ENABLED =
+  process.env.LIVE_RELOAD !== "0" && process.env.NODE_ENV !== "production";
 const CSV_DIR =
   process.env.COMPUTER_ACCURACY_CSV_DIR ||
   path.join(__dirname, "Code E6-B");
@@ -268,6 +272,106 @@ function sendJson(res, body, status = 200) {
   res.end(data);
 }
 
+const liveReloadClients = new Set();
+let liveReloadStarted = false;
+let liveReloadTimer = null;
+
+function liveReloadClientScript() {
+  return `(() => {
+  if (!("EventSource" in window)) return;
+  let opened = false;
+  let disconnected = false;
+  const source = new EventSource("/__live-reload/events");
+  source.onopen = () => {
+    if (opened && disconnected) {
+      window.location.reload();
+      return;
+    }
+    opened = true;
+    disconnected = false;
+  };
+  source.addEventListener("reload", () => window.location.reload());
+  source.onerror = () => {
+    disconnected = true;
+  };
+})();`;
+}
+
+function handleLiveReload(req, res, url) {
+  if (!LIVE_RELOAD_ENABLED) {
+    res.writeHead(404);
+    res.end("Not found");
+    return true;
+  }
+
+  if (url.pathname === "/__live-reload.js") {
+    res.writeHead(200, {
+      "content-type": MIME[".js"],
+      "cache-control": "no-store",
+    });
+    res.end(liveReloadClientScript());
+    return true;
+  }
+
+  if (url.pathname !== "/__live-reload/events") return false;
+
+  res.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-store",
+    connection: "keep-alive",
+  });
+  res.write(": connected\n\n");
+
+  liveReloadClients.add(res);
+  req.on("close", () => {
+    liveReloadClients.delete(res);
+  });
+
+  return true;
+}
+
+function notifyLiveReload(reason) {
+  if (!LIVE_RELOAD_ENABLED || !liveReloadClients.size) return;
+
+  clearTimeout(liveReloadTimer);
+  liveReloadTimer = setTimeout(() => {
+    const data = JSON.stringify({ reason, at: Date.now() });
+    liveReloadClients.forEach((client) => {
+      client.write(`event: reload\ndata: ${data}\n\n`);
+    });
+  }, 120);
+}
+
+function watchLiveReloadPath(targetPath) {
+  if (!fs.existsSync(targetPath)) return;
+
+  try {
+    fs.watch(targetPath, { recursive: true }, (_eventType, fileName) => {
+      notifyLiveReload(fileName || targetPath);
+    });
+  } catch (error) {
+    console.warn(`Live reload could not watch ${targetPath}: ${error.message}`);
+  }
+}
+
+function startLiveReload() {
+  if (!LIVE_RELOAD_ENABLED || liveReloadStarted) return;
+
+  liveReloadStarted = true;
+  watchLiveReloadPath(PUBLIC_DIR);
+  watchLiveReloadPath(CSV_DIR);
+  console.log("Live reload enabled for public files and CSV data.");
+}
+
+function injectLiveReload(html) {
+  if (!LIVE_RELOAD_ENABLED) return html;
+
+  const tag = '\n    <script src="/__live-reload.js"></script>';
+  return html.includes("</body>")
+    ? html.replace("</body>", `${tag}\n  </body>`)
+    : `${html}${tag}`;
+}
+
 function serveStatic(res, pathname) {
   const requested = pathname === "/" ? "/index.html" : pathname;
   const safePath = path
@@ -289,6 +393,15 @@ function serveStatic(res, pathname) {
   }
 
   const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".html" && LIVE_RELOAD_ENABLED) {
+    res.writeHead(200, {
+      "content-type": MIME[ext],
+      "cache-control": "no-store",
+    });
+    res.end(injectLiveReload(fs.readFileSync(filePath, "utf8")));
+    return;
+  }
+
   res.writeHead(200, {
     "content-type": MIME[ext] || "application/octet-stream",
     "cache-control": "no-store",
@@ -336,6 +449,10 @@ function handleApi(req, res, url) {
 const server = http.createServer((req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    if (handleLiveReload(req, res, url)) {
+      return;
+    }
+
     if (url.pathname.startsWith("/api/")) {
       handleApi(req, res, url);
     } else {
@@ -346,7 +463,18 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+function lanUrls() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((item) => item && item.family === "IPv4" && !item.internal)
+    .map((item) => `http://${item.address}:${PORT}`);
+}
+
+server.listen(PORT, HOST, () => {
+  startLiveReload();
   console.log(`Computer Accuracy Practice running at http://localhost:${PORT}`);
+  if (HOST === "0.0.0.0") {
+    lanUrls().forEach((url) => console.log(`Phone/LAN URL: ${url}`));
+  }
   console.log(`Reading CSVs from ${CSV_DIR}`);
 });

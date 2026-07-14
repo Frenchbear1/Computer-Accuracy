@@ -5,9 +5,21 @@ const INSTANT_REVEAL_KEY = "computerAccuracyInstantReveal:v1";
 const AUTO_FINISH_KEY = "computerAccuracyAutoFinishHour:v1";
 const SHUFFLE_QUESTIONS_KEY = "computerAccuracyShuffleQuestions:v1";
 const SELECTED_TEST_KEY = "computerAccuracySelectedTest:v1";
+const THEME_KEY = "computerAccuracyTheme:v1";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const START_ROLL_SHRINK_MS = 260;
+const PHONE_TIMELINE_QUERY = "(max-width: 767px)";
 const STATIC_DATA_ROOT = new URL("./data/", window.location.href);
+const HOME_LOGO_ANIMATION_CLASSES = [
+  "logo-wiggle",
+  "logo-press-wiggle",
+  "logo-liquid-flip",
+  "logo-trick-spin",
+  "logo-trick-roll",
+  "logo-trick-orbit",
+  "logo-trick-float",
+  "logo-trick-shimmy",
+];
 
 const state = {
   tests: [],
@@ -28,6 +40,7 @@ const state = {
   instantReveal: true,
   autoFinishHour: false,
   shuffleQuestions: false,
+  theme: "light",
   pendingDeleteIncompleteId: null,
   resultsReturnActive: false,
   resultsReturnRun: null,
@@ -40,6 +53,7 @@ const state = {
   homeLogoDrag: null,
   homeLogoRotation: 0,
   homeLogoAnimationTimer: null,
+  homeLogoAnimationFrame: null,
   homeLogoResetTimer: null,
   homeLogoSuppressClick: false,
   searchShowAnswers: false,
@@ -53,6 +67,7 @@ const els = {
   homeScreen: $("#homeScreen"),
   homeLogoButton: $("#homeLogoBtn"),
   homeLogo: $(".home-logo"),
+  homeLogoTrickButtons: document.querySelectorAll("[data-logo-trick]"),
   practiceShell: $("#practiceShell"),
   practiceHeader: $("#practiceHeader"),
   testDrawer: $("#testDrawer"),
@@ -64,6 +79,8 @@ const els = {
   chooseTestBtn: $("#chooseTestBtn"),
   selectedTestKicker: $("#selectedTestKicker"),
   homeMessageBubble: $(".home-message-bubble"),
+  themeToggleBtn: $("#themeToggleBtn"),
+  themeColorMeta: document.querySelector('meta[name="theme-color"]'),
   homeLogBtn: $("#homeLogBtn"),
   homeSearchBtn: $("#homeSearchBtn"),
   startBtn: $("#startBtn"),
@@ -112,6 +129,7 @@ const els = {
   searchModal: $("#searchModal"),
   searchAnswersToggle: $("#searchAnswersToggle"),
   searchInput: $("#searchInput"),
+  searchClearBtn: $("#searchClearBtn"),
   searchStatus: $("#searchStatus"),
   searchResults: $("#searchResults"),
   resultsModal: $("#resultsModal"),
@@ -411,6 +429,32 @@ function saveShuffleQuestionsSetting() {
   window.localStorage.setItem(SHUFFLE_QUESTIONS_KEY, String(state.shuffleQuestions));
 }
 
+function applyTheme(theme) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  const isDark = nextTheme === "dark";
+  state.theme = nextTheme;
+  document.documentElement.dataset.theme = nextTheme;
+  document.body.dataset.theme = nextTheme;
+  els.themeToggleBtn?.setAttribute("aria-pressed", String(isDark));
+  els.themeToggleBtn?.setAttribute("aria-label", isDark ? "Turn off dark mode" : "Turn on dark mode");
+  if (els.themeColorMeta) els.themeColorMeta.content = isDark ? "#101413" : "#f6f4ef";
+  if (state.started) renderTimeline();
+}
+
+function loadThemeSetting() {
+  const saved = window.localStorage.getItem(THEME_KEY);
+  applyTheme(saved === "dark" ? "dark" : "light");
+}
+
+function saveThemeSetting() {
+  window.localStorage.setItem(THEME_KEY, state.theme);
+}
+
+function toggleTheme() {
+  applyTheme(state.theme === "dark" ? "light" : "dark");
+  saveThemeSetting();
+}
+
 function loadSelectedTestId() {
   const saved = window.localStorage.getItem(SELECTED_TEST_KEY);
   if (selectionMetaById(saved)) return saved;
@@ -432,15 +476,7 @@ async function fetchJson(url) {
   return response.json();
 }
 
-function shouldUseStaticData() {
-  return !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-}
-
 async function fetchCatalog() {
-  if (shouldUseStaticData()) {
-    return fetchJson(new URL("tests.json", STATIC_DATA_ROOT));
-  }
-
   try {
     return await fetchJson("/api/tests");
   } catch {
@@ -452,10 +488,6 @@ async function fetchSelection(id, type) {
   const encodedId = encodeURIComponent(id);
   const apiPath = type === "category" ? `/api/categories/${encodedId}` : `/api/tests/${encodedId}`;
   const staticPath = new URL(`${type === "category" ? "categories" : "tests"}/${encodedId}.json`, STATIC_DATA_ROOT);
-
-  if (shouldUseStaticData()) {
-    return fetchJson(staticPath);
-  }
 
   try {
     return await fetchJson(apiPath);
@@ -804,10 +836,20 @@ function setResultsOpen(open, run = null) {
   }
 }
 
-function addResumeStat(target, text) {
+function addResumeStat(target, label, value, modifier = "") {
   const pill = document.createElement("span");
-  pill.className = "resume-stat";
-  pill.textContent = text;
+  pill.className = `resume-stat ${modifier}`.trim();
+  if (value === undefined) {
+    pill.textContent = label;
+  } else {
+    const statLabel = document.createElement("span");
+    statLabel.className = "resume-stat-label";
+    statLabel.textContent = label;
+    const statValue = document.createElement("strong");
+    statValue.className = "resume-stat-value";
+    statValue.textContent = value;
+    pill.append(statLabel, statValue);
+  }
   target.appendChild(pill);
 }
 
@@ -819,6 +861,15 @@ function renderResumePanel() {
   state.incompleteTests.forEach((saved) => {
     const item = document.createElement("article");
     item.className = "resume-item";
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    item.setAttribute("aria-label", `Resume ${saved.testTitle || "test"}`);
+    item.addEventListener("click", () => resumeIncompleteTest(saved.id));
+    item.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      resumeIncompleteTest(saved.id);
+    });
 
     const main = document.createElement("div");
     main.className = "resume-main";
@@ -830,19 +881,17 @@ function renderResumePanel() {
     meta.className = "resume-meta";
     const total = Number(saved.total) || 0;
     const current = Math.min(Number(saved.currentIndex || 0) + 1, total || 1);
-    addResumeStat(meta, total ? `Question ${current}/${total}` : "In progress");
-    addResumeStat(meta, `Time ${formatElapsed(saved.elapsedMs || 0)}`);
-    if (Number.isFinite(Number(saved.answered))) addResumeStat(meta, `${saved.answered || 0} answered`);
-    addResumeStat(meta, formatSavedAt(saved.savedAt));
+    addResumeStat(meta, total ? "Question" : "Status", total ? `${current}/${total}` : "Active", "resume-stat-question");
+    addResumeStat(meta, "Time", formatElapsed(saved.elapsedMs || 0), "resume-stat-time");
+    addResumeStat(
+      meta,
+      "Answered",
+      Number.isFinite(Number(saved.answered)) ? String(saved.answered || 0) : "0",
+      "resume-stat-answered"
+    );
+    addResumeStat(meta, "Saved", formatSavedAt(saved.savedAt), "resume-stat-saved");
 
     main.append(title, meta);
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "resume-play nav-btn primary";
-    button.setAttribute("aria-label", `Resume ${saved.testTitle || "test"}`);
-    button.innerHTML = `<svg class="play-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z"/></svg>`;
-    button.addEventListener("click", () => resumeIncompleteTest(saved.id));
 
     const actions = document.createElement("div");
     actions.className = "resume-actions";
@@ -852,9 +901,15 @@ function renderResumePanel() {
     deleteButton.className = "resume-delete";
     deleteButton.setAttribute("aria-label", `Delete unfinished ${saved.testTitle || "test"}`);
     deleteButton.innerHTML = `<svg class="trash-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 9h2v10h6v-1h2v3H7V9Z"/></svg>`;
-    deleteButton.addEventListener("click", () => requestDeleteIncompleteProgress(saved.id));
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      requestDeleteIncompleteProgress(saved.id);
+    });
+    deleteButton.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+    });
 
-    actions.append(deleteButton, button);
+    actions.append(deleteButton);
     item.append(main, actions);
     els.resumeList.appendChild(item);
   });
@@ -982,12 +1037,22 @@ function setHomeLogoRotation(degrees) {
   els.homeLogo?.style.setProperty("--logo-rotate", `${degrees.toFixed(2)}deg`);
 }
 
+function clearHomeLogoAnimation() {
+  window.clearTimeout(state.homeLogoAnimationTimer);
+  state.homeLogoAnimationTimer = null;
+  if (state.homeLogoAnimationFrame) {
+    window.cancelAnimationFrame(state.homeLogoAnimationFrame);
+    state.homeLogoAnimationFrame = null;
+  }
+  els.homeLogo?.style.removeProperty("--logo-live-transform");
+  els.homeLogo?.classList.remove(...HOME_LOGO_ANIMATION_CLASSES);
+}
+
 function restartHomeLogoAnimation(className, durationMs) {
   const logo = els.homeLogo;
   if (!logo) return;
 
-  window.clearTimeout(state.homeLogoAnimationTimer);
-  logo.classList.remove("logo-wiggle", "logo-press-wiggle");
+  clearHomeLogoAnimation();
   void logo.offsetWidth;
   logo.classList.add(className);
   state.homeLogoAnimationTimer = window.setTimeout(() => {
@@ -1029,6 +1094,79 @@ function playHomeLogoPressWiggle(event) {
   restartHomeLogoAnimation("logo-press-wiggle", 840);
 }
 
+function easeInOutSine(progress) {
+  return -(Math.cos(Math.PI * progress) - 1) / 2;
+}
+
+function easeOutBack(progress) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+}
+
+function playHomeLogoLiquidFlip() {
+  const logo = els.homeLogo;
+  if (!logo) return;
+
+  clearHomeLogoAnimation();
+  logo.classList.add("logo-liquid-flip");
+  const duration = 1460;
+  const baseRotation = state.homeLogoRotation;
+  const start = performance.now();
+
+  const step = (now) => {
+    const rawProgress = clampNumber((now - start) / duration, 0, 1);
+    const arcProgress = easeInOutSine(rawProgress);
+    const lift = Math.sin(Math.PI * rawProgress);
+    const settleProgress = rawProgress > 0.78 ? (rawProgress - 0.78) / 0.22 : 0;
+    const settle = settleProgress ? easeOutBack(settleProgress) - 1 : 0;
+    const wobbleFade = 1 - arcProgress;
+    const y = -36 * lift + 3.8 * Math.sin(Math.PI * rawProgress * 4) * wobbleFade;
+    const x = 9 * Math.sin(Math.PI * rawProgress * 2);
+    const rotateX = 360 * rawProgress + 6 * Math.sin(Math.PI * rawProgress * 3) * wobbleFade;
+    const rotateY = 8 * Math.sin(Math.PI * rawProgress * 1.75) * wobbleFade;
+    const rotateZ = baseRotation + 360 * rawProgress;
+    const z = 18 * lift;
+    const scale = 1 + 0.036 * lift - 0.012 * Math.max(0, settle);
+
+    logo.style.setProperty(
+      "--logo-live-transform",
+      `perspective(760px) translateX(${x.toFixed(2)}px) translateY(${y.toFixed(2)}px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) rotate(${rotateZ.toFixed(2)}deg) translateZ(${z.toFixed(2)}px) scale(${scale.toFixed(4)})`
+    );
+
+    if (rawProgress < 1) {
+      state.homeLogoAnimationFrame = window.requestAnimationFrame(step);
+    } else {
+      logo.style.removeProperty("--logo-live-transform");
+      logo.classList.remove("logo-liquid-flip");
+      state.homeLogoAnimationFrame = null;
+    }
+  };
+
+  state.homeLogoAnimationFrame = window.requestAnimationFrame(step);
+}
+
+function playHomeLogoTrick(trick) {
+  const logo = els.homeLogo;
+  if (!logo || els.homeScreen.hidden || state.homeLogoDrag || prefersReducedMotion()) return;
+
+  if (trick === "hop") {
+    playHomeLogoLiquidFlip();
+    return;
+  }
+
+  const config = {
+    spin: ["logo-trick-spin", 1500],
+    roll: ["logo-trick-roll", 1600],
+    orbit: ["logo-trick-orbit", 1800],
+    float: ["logo-trick-float", 1900],
+    shimmy: ["logo-trick-shimmy", 1100],
+  }[trick];
+  if (!config) return;
+
+  restartHomeLogoAnimation(config[0], config[1]);
+}
+
 function resetHomeLogoSpin() {
   const logo = els.homeLogo;
   if (!logo) return;
@@ -1043,9 +1181,8 @@ function beginHomeLogoDrag(event) {
   if (event.button !== undefined && event.button !== 0) return;
 
   window.clearTimeout(state.homeLogoResetTimer);
-  window.clearTimeout(state.homeLogoAnimationTimer);
-  state.homeLogoAnimationTimer = null;
-  els.homeLogo.classList.remove("logo-wiggle", "logo-press-wiggle", "logo-settling");
+  clearHomeLogoAnimation();
+  els.homeLogo.classList.remove("logo-settling");
   els.homeLogo.classList.add("logo-dragging");
   els.homeLogoButton.classList.add("dragging");
   els.homeLogoButton.setPointerCapture?.(event.pointerId);
@@ -1179,8 +1316,20 @@ function revealPracticeShell() {
   cleanupStartTransition();
   els.practiceShell.hidden = false;
   setQuizView(true);
+  scrollToPageTop();
   els.practiceShell.classList.add("practice-entering");
   window.setTimeout(() => els.practiceShell.classList.remove("practice-entering"), 360);
+}
+
+function scrollToPageTop() {
+  const reset = () => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+  reset();
+  window.requestAnimationFrame(reset);
+  window.setTimeout(reset, 80);
 }
 
 function setQuizView(active) {
@@ -1219,6 +1368,8 @@ function setMenuOpen(open) {
   els.testDrawer.hidden = false;
   els.drawerBackdrop.hidden = !open;
   els.testDrawer.classList.toggle("open", open);
+  document.documentElement.classList.toggle("drawer-open", open);
+  document.body.classList.toggle("drawer-open", open);
   if (!open) {
     window.setTimeout(() => {
       if (!els.testDrawer.classList.contains("open")) els.testDrawer.hidden = true;
@@ -1642,6 +1793,7 @@ function renderSearchResult(record, terms, index) {
 function renderSearchResults() {
   clearNode(els.searchResults);
   const query = els.searchInput.value.trim();
+  els.searchClearBtn.hidden = !els.searchInput.value;
 
   if (state.searchIndexError) {
     els.searchStatus.textContent = state.searchIndexError;
@@ -1764,17 +1916,20 @@ function timelineStatus(question) {
 }
 
 function timelineStatusColor(status) {
-  return {
-    unanswered: "#a8a49a",
-    pending: "#295d5d",
-    complete: "#227b51",
-    incorrect: "#a13b36",
-    flagged: "#d4a72c",
-  }[status] || "#a8a49a";
+  const variableName =
+    {
+      unanswered: "--timeline-unanswered",
+      pending: "--timeline-pending",
+      complete: "--timeline-complete",
+      incorrect: "--timeline-incorrect",
+      flagged: "--timeline-flagged",
+    }[status] || "--timeline-unanswered";
+  const themedColor = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+  return themedColor || "#a8a49a";
 }
 
 function timelineGradient(questions) {
-  if (!questions.length) return "rgba(32, 32, 29, 0.12)";
+  if (!questions.length) return timelineStatusColor("unanswered");
   if (questions.length === 1) return timelineStatusColor(timelineStatus(questions[0]));
 
   const segmentWidth = 100 / questions.length;
@@ -1802,6 +1957,36 @@ function timelineOptionLabel(question) {
     : `Question ${question.number}`;
 }
 
+function timelineStatusLabel(status) {
+  return {
+    unanswered: "Unanswered",
+    pending: "Answered",
+    complete: "Correct",
+    incorrect: "Incorrect",
+    flagged: "Flagged",
+  }[status] || "Unanswered";
+}
+
+function isTabletTouchDevice() {
+  const userAgent = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  const touchPoints = Number(navigator.maxTouchPoints) || 0;
+  const isiPad = /iPad/i.test(userAgent) || (platform === "MacIntel" && touchPoints > 1);
+  const isAndroidTablet = /Android/i.test(userAgent) && !/Mobile/i.test(userAgent);
+  const isTablet = /Tablet|PlayBook|Silk|Kindle/i.test(userAgent);
+  return touchPoints > 0 && (isiPad || isAndroidTablet || isTablet);
+}
+
+function syncTabletTouchUi() {
+  const active = isTabletTouchDevice();
+  document.documentElement.classList.toggle("tablet-touch-ui", active);
+  document.body.classList.toggle("tablet-touch-ui", active);
+}
+
+function shouldUseTimelinePicker() {
+  return window.matchMedia(PHONE_TIMELINE_QUERY).matches || isTabletTouchDevice();
+}
+
 function jumpToQuestion(question) {
   state.resultsReturnActive = false;
   state.resultsReturnRun = null;
@@ -1819,6 +2004,41 @@ function renderTimeline() {
   const questions = state.currentTest?.questions || [];
   els.questionTimeline.hidden = !state.started || !questions.length;
   if (!state.started || !questions.length) return;
+
+  if (shouldUseTimelinePicker()) {
+    const current = currentQuestion();
+    els.questionTimeline.classList.add("compact");
+    els.timelineList.hidden = true;
+    els.timelinePicker.hidden = false;
+    els.timelinePickerLabel.textContent = current
+      ? `${timelineOptionLabel(current)} of ${questions.length}`
+      : `Question 1 of ${questions.length}`;
+
+    questions.forEach((question) => {
+      const status = timelineStatus(question);
+      const button = document.createElement("button");
+      const title = document.createElement("span");
+      const stateLabel = document.createElement("span");
+
+      button.type = "button";
+      button.className = `timeline-option ${status}`;
+      button.classList.toggle("current", answerKey(question) === answerKey(current || {}));
+      button.setAttribute("aria-label", timelineOptionLabel(question));
+      button.addEventListener("click", () => {
+        els.timelinePicker.open = false;
+        jumpToQuestion(question);
+      });
+
+      title.className = "timeline-option-title";
+      title.textContent = timelineOptionLabel(question);
+      stateLabel.className = "timeline-option-state";
+      stateLabel.textContent = timelineStatusLabel(status);
+
+      button.append(title, stateLabel);
+      els.timelinePickerMenu.appendChild(button);
+    });
+    return;
+  }
 
   els.questionTimeline.classList.remove("compact");
   els.timelineList.hidden = false;
@@ -2485,39 +2705,56 @@ function restoreEntries(entries, targetMap) {
 
 async function resumeIncompleteTest(id) {
   const saved = state.incompleteTests.find((item) => item.id === id);
-  if (!saved) return;
+  if (!saved || state.startingTest) return;
 
-  els.homeScreen.hidden = true;
-  els.practiceShell.hidden = false;
-  setQuizView(true);
+  state.startingTest = true;
+  els.startBtn.disabled = true;
+  const transition = playStartTransition().catch(() => {});
+
   setMenuOpen(false);
   setLogOpen(false);
   setSearchOpen(false);
   setResultsOpen(false);
 
-  state.started = false;
-  await loadTest(saved.testId);
-  clearProgressForTest(saved.testId);
-  restoreEntries(saved.answerEntries, state.answers);
-  restoreEntries(saved.helperEntries, state.helpers);
-  restoreEntries(saved.flagEntries, state.flags);
+  try {
+    state.started = false;
+    els.practiceShell.hidden = true;
+    await loadTest(saved.testId);
+    clearProgressForTest(saved.testId);
+    restoreEntries(saved.answerEntries, state.answers);
+    restoreEntries(saved.helperEntries, state.helpers);
+    restoreEntries(saved.flagEntries, state.flags);
 
-  state.order = orderFromNumbers(saved.orderQuestionIds || saved.orderNumbers, state.currentTest.questions);
-  const currentQuestionId = String(saved.currentQuestionId || saved.currentNumber || "");
-  const numberIndex = state.order.findIndex(
-    (question) => questionId(question) === currentQuestionId || String(question.number) === currentQuestionId
-  );
-  state.currentIndex =
-    numberIndex >= 0
-      ? numberIndex
-      : Math.min(Math.max(Number(saved.currentIndex) || 0, 0), state.order.length - 1);
-  state.reviewMode = Boolean(saved.reviewMode);
-  state.started = true;
-  state.activeRunSaved = false;
-  state.activeRunId = saved.id;
-  startTimer(saved.elapsedMs || 0, saved.id);
-  renderQuestion();
-  saveIncompleteProgress();
+    state.order = orderFromNumbers(saved.orderQuestionIds || saved.orderNumbers, state.currentTest.questions);
+    const currentQuestionId = String(saved.currentQuestionId || saved.currentNumber || "");
+    const numberIndex = state.order.findIndex(
+      (question) => questionId(question) === currentQuestionId || String(question.number) === currentQuestionId
+    );
+    state.currentIndex =
+      numberIndex >= 0
+        ? numberIndex
+        : Math.min(Math.max(Number(saved.currentIndex) || 0, 0), state.order.length - 1);
+    state.reviewMode = Boolean(saved.reviewMode);
+    state.started = true;
+    state.activeRunSaved = false;
+    state.activeRunId = saved.id;
+    renderQuestion();
+    await transition;
+    revealPracticeShell();
+    startTimer(saved.elapsedMs || 0, saved.id);
+    saveIncompleteProgress();
+  } catch (error) {
+    await transition;
+    state.started = false;
+    els.practiceShell.hidden = true;
+    els.homeScreen.hidden = false;
+    setQuizView(false);
+    cleanupStartTransition();
+    els.questionText.innerHTML = `<div class="empty-state">${error.message}</div>`;
+  } finally {
+    state.startingTest = false;
+    renderHomeSelection();
+  }
 }
 
 function goHome() {
@@ -2651,6 +2888,8 @@ async function startSelectedTest() {
 }
 
 async function init() {
+  loadThemeSetting();
+
   const payload = await fetchCatalog();
   state.tests = payload.tests || [];
   state.categories = sortCategoriesByCount(payload.categories || []);
@@ -2669,6 +2908,9 @@ async function init() {
     if (state.homeLogoSuppressClick) return;
     playHomeLogoPressWiggle(event);
   });
+  els.homeLogoTrickButtons.forEach((button) => {
+    button.addEventListener("click", () => playHomeLogoTrick(button.dataset.logoTrick));
+  });
   els.homeLogoButton.addEventListener("pointerdown", beginHomeLogoDrag);
   els.homeLogoButton.addEventListener("pointermove", spinHomeLogo);
   els.homeLogoButton.addEventListener("pointerup", endHomeLogoDrag);
@@ -2682,6 +2924,7 @@ async function init() {
   window.addEventListener("mouseup", finishHomeLogoDrag);
   window.addEventListener("blur", finishHomeLogoDrag);
   els.homeMessageBubble.addEventListener("click", openMessageEmail);
+  els.themeToggleBtn?.addEventListener("click", toggleTheme);
   els.homeLogBtn.addEventListener("click", () => setLogOpen(true));
   els.homeSearchBtn.addEventListener("click", () => setSearchOpen(true));
   els.logBackdrop.addEventListener("click", () => setLogOpen(false));
@@ -2694,6 +2937,11 @@ async function init() {
     renderSearchResults();
   });
   els.searchInput.addEventListener("input", renderSearchResults);
+  els.searchClearBtn.addEventListener("click", () => {
+    els.searchInput.value = "";
+    renderSearchResults();
+    els.searchInput.focus();
+  });
   els.resultsBackdrop.addEventListener("click", () => setResultsOpen(false));
   els.instantRevealToggle.addEventListener("change", () => {
     state.instantReveal = els.instantRevealToggle.checked;
@@ -2765,6 +3013,14 @@ async function init() {
     stopTimer();
     saveIncompleteProgress();
   });
+
+  syncTabletTouchUi();
+  const phoneTimelineQuery = window.matchMedia(PHONE_TIMELINE_QUERY);
+  if (phoneTimelineQuery.addEventListener) {
+    phoneTimelineQuery.addEventListener("change", renderTimeline);
+  } else {
+    phoneTimelineQuery.addListener(renderTimeline);
+  }
 
   loadRunLog();
   loadIncompleteTests();
